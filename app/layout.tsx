@@ -19,9 +19,9 @@ const parkinsans = Parkinsans({
 });
 
 export const metadata: Metadata = {
-  title: "Codeguide Starter Fullstack",
+  title: "GEOMON - Sistem Geospasial Monitoring Wilkerstat",
   description:
-    "A modern Next.js starter with TypeScript, TailwindCSS, shadcn/ui, Better Auth, and Drizzle ORM",
+    "Sistem monitoring geospasial untuk Wilayah Kerja Statistik (Wilkerstat) BPS Kota Jakarta Pusat",
 };
 
 export default function RootLayout({
