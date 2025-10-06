@@ -15,6 +15,10 @@
       closeModal();
     }
   }
+
+  function handleZoomToAnomaly(anomaly: any) {
+    dispatch('zoom', anomaly);
+  }
 </script>
 
 {#if isOpen}
@@ -78,6 +82,7 @@
                 class:border-yellow-200={anomaly.severity === 'Medium'}
                 class:border-blue-200={anomaly.severity === 'Low'}
                 style="animation: slideIn 0.3s ease-out {index * 0.1}s both;"
+                on:click={() => handleZoomToAnomaly(anomaly)}
               >
                 <div class="flex items-start space-x-3">
                   <div class="flex-shrink-0">

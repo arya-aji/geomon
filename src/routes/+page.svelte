@@ -34,6 +34,48 @@
     return true;
   }
 
+  function zoomToAnomaly(anomaly: any) {
+    if (!map || !geoJSONLayer) return;
+
+    // Find the specific feature in the GeoJSON layer
+    geoJSONLayer.eachLayer((layer: any) => {
+      if (layer.feature && layer.feature.properties &&
+          layer.feature.properties.idsubsls === anomaly.idsubsls) {
+
+        // Zoom to the feature bounds
+        if (layer.getBounds && layer.getBounds().isValid()) {
+          map.fitBounds(layer.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 18
+          });
+        } else if (layer.getLatLng) {
+          // For point features
+          map.setView(layer.getLatLng(), 16);
+        }
+
+        // Highlight the layer
+        layer.setStyle({
+          fillColor: '#ff0000',
+          fillOpacity: 0.5,
+          color: '#ff0000',
+          weight: 3,
+          opacity: 1
+        });
+
+        // Open popup for this feature
+        if (layer.feature.properties) {
+          const popupContent = createPopupContent(layer.feature.properties);
+          layer.bindPopup(popupContent).openPopup();
+        }
+
+        // Reset style after 3 seconds
+        setTimeout(() => {
+          geoJSONLayer.resetStyle(layer);
+        }, 3000);
+      }
+    });
+  }
+
   onMount(async () => {
     if (!browser) return;
 
@@ -310,7 +352,7 @@
               {:else}
                 {#each anomalies.slice(0, 3) as anomaly (anomaly.idsubsls)}
                   <div
-                    class="p-3 rounded-lg hover:shadow-md transition-colors cursor-pointer"
+                    class="p-3 rounded-lg hover:shadow-md transition-all cursor-pointer hover:scale-105"
                     class:bg-red-50={anomaly.severity === 'High'}
                     class:bg-yellow-50={anomaly.severity === 'Medium'}
                     class:bg-blue-50={anomaly.severity === 'Low'}
@@ -318,6 +360,7 @@
                     class:border-yellow-200={anomaly.severity === 'Medium'}
                     class:border-blue-200={anomaly.severity === 'Low'}
                     class:border={anomaly.severity}
+                    on:click={() => zoomToAnomaly(anomaly)}
                   >
                     <div class="flex items-start space-x-3">
                       <div class="flex-shrink-0">
@@ -417,4 +460,9 @@
 </div>
 
 <!-- Anomaly Modal -->
-<AnomalyModal isOpen={showAnomalyModal} {anomalies} on:close={closeAnomalyModal} />
+<AnomalyModal
+  isOpen={showAnomalyModal}
+  {anomalies}
+  on:close={closeAnomalyModal}
+  on:zoom={(e) => zoomToAnomaly(e.detail)}
+/>
