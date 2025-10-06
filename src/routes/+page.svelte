@@ -361,6 +361,9 @@
 			// Rule 5: Merge polygons by kddesa and check for holes
 			checkMergedPolygonHoles(geoJson);
 
+			// Rule 6: Check for invalid geometries
+			checkInvalidGeometries(geoJson);
+
 			// Add GeoJSON to map
 			geoJSONLayer = L.geoJSON(geoJson, {
 				style: {
@@ -1469,6 +1472,177 @@
 		};
 
 		addAnomaly(anomalyData);
+	}
+
+	function checkInvalidGeometries(geoJson: any) {
+		if (geoJson.type !== 'FeatureCollection') return;
+
+		geoJson.features.forEach((feature: any, featureIndex: number) => {
+			if (!feature.geometry) {
+				// Null geometry check
+				addAnomaly({
+					idsubsls: feature.properties?.idsubsls || `feature_${featureIndex}`,
+					title: 'Null Geometry Detected',
+					severity: 'High',
+					description: 'Feature has null or undefined geometry',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			const geometry = feature.geometry;
+			const props = feature.properties;
+
+			// Check different geometry types
+			if (geometry.type === 'Polygon') {
+				checkPolygonGeometryValidity(geometry, props, featureIndex);
+			} else if (geometry.type === 'MultiPolygon') {
+				geometry.coordinates.forEach((polygon: any, polygonIndex: number) => {
+					checkPolygonGeometryValidity(
+						{ type: 'Polygon', coordinates: polygon },
+						props,
+						featureIndex,
+						polygonIndex
+					);
+				});
+			}
+		});
+	}
+
+	function checkPolygonGeometryValidity(
+		geometry: any,
+		props: any,
+		featureIndex: number,
+		polygonIndex: number = 0
+	) {
+		const coordinates = geometry.coordinates;
+		const featureId = props?.idsubsls || `feature_${featureIndex}`;
+
+		coordinates.forEach((ring: number[][], ringIndex: number) => {
+			// Check for non-closed rings
+			if (ring.length < 4) {
+				addAnomaly({
+					idsubsls: featureId,
+					title: 'Invalid Ring - Too Few Points',
+					severity: 'High',
+					description: `Ring ${ringIndex + 1} has only ${ring.length} points (minimum 4 required)`,
+					coordinates: extractCoordinates(geometry),
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			// Check if ring is properly closed
+			const first = ring[0];
+			const last = ring[ring.length - 1];
+			if (first[0] !== last[0] || first[1] !== last[1]) {
+				addAnomaly({
+					idsubsls: featureId,
+					title: 'Non-Closed Ring Detected',
+					severity: 'High',
+					description: `Ring ${ringIndex + 1} is not properly closed (first and last points don't match)`,
+					coordinates: extractCoordinates(geometry),
+					detectedAt: new Date().toLocaleString()
+				});
+			}
+
+			// Check for duplicate vertices
+			const duplicateVertices = findDuplicateVertices(ring);
+			if (duplicateVertices.length > 0) {
+				addAnomaly({
+					idsubsls: featureId,
+					title: 'Duplicate Vertices Detected',
+					severity: 'Medium',
+					description: `Ring ${ringIndex + 1} contains ${duplicateVertices.length} duplicate vertices`,
+					coordinates: extractCoordinates(geometry),
+					detectedAt: new Date().toLocaleString()
+				});
+			}
+
+			// Check for self-intersections (only for exterior rings)
+			if (ringIndex === 0) {
+				const intersections = findSelfIntersections(ring);
+				if (intersections.length > 0) {
+					addAnomaly({
+						idsubsls: featureId,
+						title: 'Self-Intersection Detected',
+						severity: 'High',
+						description: `Polygon self-intersects at ${intersections.length} point(s)`,
+						coordinates: extractCoordinates(geometry),
+						detectedAt: new Date().toLocaleString()
+					});
+				}
+			}
+		});
+	}
+
+	function findDuplicateVertices(ring: number[][]): number[] {
+		const duplicates: number[] = [];
+		const seen = new Set<string>();
+
+		for (let i = 0; i < ring.length - 1; i++) { // Skip last vertex as it's same as first
+			const key = `${ring[i][0]},${ring[i][1]}`;
+			if (seen.has(key)) {
+				duplicates.push(i);
+			} else {
+				seen.add(key);
+			}
+		}
+
+		return duplicates;
+	}
+
+	function findSelfIntersections(ring: number[][]): number[][] {
+		const intersections: number[][] = [];
+		const n = ring.length - 1; // Skip last vertex as it's same as first
+
+		for (let i = 0; i < n; i++) {
+			const seg1Start = ring[i];
+			const seg1End = ring[(i + 1) % n];
+
+			for (let j = i + 2; j < n; j++) {
+				// Skip adjacent segments and shared vertices
+				if (j === i || (j + 1) % n === i) continue;
+
+				const seg2Start = ring[j];
+				const seg2End = ring[(j + 1) % n];
+
+				const intersection = getLineIntersection(
+					seg1Start, seg1End, seg2Start, seg2End
+				);
+
+				if (intersection) {
+					intersections.push(intersection);
+				}
+			}
+		}
+
+		return intersections;
+	}
+
+	function getLineIntersection(
+		p1: number[], p2: number[], p3: number[], p4: number[]
+	): number[] | null {
+		const x1 = p1[0], y1 = p1[1];
+		const x2 = p2[0], y2 = p2[1];
+		const x3 = p3[0], y3 = p3[1];
+		const x4 = p4[0], y4 = p4[1];
+
+		const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+		if (Math.abs(denom) < 1e-10) return null; // Lines are parallel
+
+		const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+		const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+		// Check if intersection is within both line segments
+		if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+			const intersectionX = x1 + t * (x2 - x1);
+			const intersectionY = y1 + t * (y2 - y1);
+			return [intersectionX, intersectionY];
+		}
+
+		return null;
 	}
 
 	function triggerFileUpload() {
