@@ -1,0 +1,43 @@
+CREATE TABLE "sipw" (
+	"id_subsls" varchar(20) PRIMARY KEY NOT NULL,
+	"idfrs" varchar(20),
+	"idsls" varchar(20),
+	"kdprov" varchar(5),
+	"kdkab" varchar(5),
+	"kdkec" varchar(5),
+	"kddesa" varchar(5),
+	"kdsls" varchar(10),
+	"klas" integer,
+	"nmprov" varchar(100),
+	"nmkab" varchar(100),
+	"nmkec" varchar(100),
+	"nmdesa" varchar(100),
+	"nama_sls" varchar(200),
+	"jenis_sls" varchar(50),
+	"ketua_sls" varchar(100),
+	"semester_id" integer,
+	"semester" varchar(10),
+	"j_subsls" integer,
+	"muatan_kk" integer,
+	"btt" integer,
+	"btt_kosong" integer,
+	"bku" integer,
+	"bbtt_non_usaha" integer,
+	"muatan_usaha" integer,
+	"muatan_total" integer,
+	"nama_wke" varchar(200),
+	"jam_operasional" varchar(50),
+	"jumlah_shift" integer,
+	"telepon_email" varchar(200),
+	"muatan_dominan" integer,
+	"flag_perubahan_sls" integer,
+	"is_deleted" integer,
+	"kd_subsls" varchar(10),
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "user" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"age" integer
+);

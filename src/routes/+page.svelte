@@ -375,6 +375,9 @@
 
 				// Rule 6: Check for invalid geometries
 				checkInvalidGeometries(geoJson);
+
+				// Rule 8: Compare GeoJSON with SIPW table data
+				checkSIPWDataConsistency(geoJson);
 			}
 
 			// Add GeoJSON to map
@@ -1736,6 +1739,200 @@
 		}
 
 		return { passed: true };
+	}
+
+	async function checkSIPWDataConsistency(geoJson: any) {
+		if (geoJson.type !== 'FeatureCollection') return;
+
+		try {
+			// Extract idsubsls from GeoJSON
+			const geoJsonIds = new Set<string>();
+			const featuresById: { [key: string]: any } = {};
+
+			geoJson.features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.idsubsls) {
+					const id = feature.properties.idsubsls.toString();
+					geoJsonIds.add(id);
+					featuresById[id] = feature;
+				}
+			});
+
+			if (geoJsonIds.size === 0) {
+				// No idsubsls found in GeoJSON
+				addAnomaly({
+					idsubsls: 'NO_IDSUBSLS_FOUND',
+					title: 'No idsubsls Found in GeoJSON',
+					severity: 'High',
+					description: 'The uploaded GeoJSON file does not contain any idsubsls identifiers',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			// Extract district codes from GeoJSON to filter SIPW data
+			const geoJsonDistricts = new Set<string>();
+			geoJson.features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.kddesa) {
+					geoJsonDistricts.add(feature.properties.kddesa.toString());
+				}
+			});
+
+			// Fetch SIPW data from database (filtered by districts in GeoJSON)
+			let sipwResponse;
+			try {
+				sipwResponse = await fetch('/api/sipw-data', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						districts: Array.from(geoJsonDistricts),
+						idsubsls: Array.from(geoJsonIds)
+					}),
+					signal: AbortSignal.timeout(10000) // 10 second timeout
+				});
+			} catch (fetchError) {
+				console.error('SIPW API call failed:', fetchError);
+				addAnomaly({
+					idsubsls: 'SIPW_TIMEOUT_ERROR',
+					title: 'SIPW Data Timeout Error',
+					severity: 'Medium',
+					description: 'Request to fetch SIPW reference data timed out or failed',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			if (!sipwResponse.ok) {
+				console.error('Failed to fetch SIPW data, status:', sipwResponse.status);
+				addAnomaly({
+					idsubsls: 'SIPW_DATA_ERROR',
+					title: 'SIPW Data Fetch Error',
+					severity: 'Medium',
+					description: `Unable to fetch SIPW reference data for validation (Status: ${sipwResponse.status})`,
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			let sipwData;
+			try {
+				sipwData = await sipwResponse.json();
+			} catch (jsonError) {
+				console.error('Failed to parse SIPW data JSON:', jsonError);
+				addAnomaly({
+					idsubsls: 'SIPW_JSON_ERROR',
+					title: 'SIPW Data Parse Error',
+					severity: 'Medium',
+					description: 'Unable to parse SIPW reference data response',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			if (!Array.isArray(sipwData)) {
+				console.error('SIPW data is not an array:', sipwData);
+				addAnomaly({
+					idsubsls: 'SIPW_FORMAT_ERROR',
+					title: 'SIPW Data Format Error',
+					severity: 'Medium',
+					description: 'SIPW reference data is not in expected format',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString()
+				});
+				return;
+			}
+
+			const sipwIds = new Set<string>(sipwData.map((item: any) => item.idsubsls));
+
+			// Rule 8.1: Check count mismatch
+			if (geoJsonIds.size !== sipwIds.size) {
+				addAnomaly({
+					idsubsls: 'COUNT_MISMATCH',
+					title: 'SIPW Count Mismatch',
+					severity: 'High',
+					description: `GeoJSON contains ${geoJsonIds.size} idsubsls, but SIPW table contains ${sipwIds.size} idsubsls for these districts`,
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					additionalInfo: {
+						geojsonCount: geoJsonIds.size,
+						sipwCount: sipwIds.size,
+						difference: Math.abs(geoJsonIds.size - sipwIds.size)
+					}
+				});
+			}
+
+			// Rule 8.2: Find missing IDs (in SIPW but not in GeoJSON)
+			const missingIds = [...sipwIds].filter(id => !geoJsonIds.has(id));
+			if (missingIds.length > 0) {
+				const missingFeatures = sipwData.filter((item: any) => missingIds.includes(item.idsubsls));
+				const districtsMissing = [...new Set(missingFeatures.map((item: any) => `${item.nmdesa} (${item.kddesa})`))].join(', ');
+
+				addAnomaly({
+					idsubsls: 'MISSING_IN_GEOJSON',
+					title: 'Missing idsubsls in GeoJSON',
+					severity: 'High',
+					description: `${missingIds.length} idsubsls found in SIPW table but missing from GeoJSON: ${missingIds.slice(0, 5).join(', ')}${missingIds.length > 5 ? '...' : ''}`,
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					additionalInfo: {
+						missingIds: missingIds,
+						missingCount: missingIds.length,
+						districtsAffected: districtsMissing,
+						details: missingFeatures.slice(0, 10).map((item: any) => ({
+							id: item.idsubsls,
+							district: item.nmdesa,
+							kddesa: item.kddesa
+						}))
+					}
+				});
+			}
+
+			// Rule 8.3: Find extra IDs (in GeoJSON but not in SIPW)
+			const extraIds = [...geoJsonIds].filter(id => !sipwIds.has(id));
+			if (extraIds.length > 0) {
+				const extraFeatures = extraIds.map(id => featuresById[id]).filter(Boolean);
+				const districtsExtra = [...new Set(extraFeatures.map((feature: any) =>
+					`${feature.properties?.nmdesa || 'Unknown'} (${feature.properties?.kddesa || 'Unknown'})`
+				))].join(', ');
+
+				addAnomaly({
+					idsubsls: 'EXTRA_IN_GEOJSON',
+					title: 'Extra idsubsls in GeoJSON',
+					severity: 'Medium',
+					description: `${extraIds.length} idsubsls found in GeoJSON but not in SIPW table: ${extraIds.slice(0, 5).join(', ')}${extraIds.length > 5 ? '...' : ''}`,
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					additionalInfo: {
+						extraIds: extraIds,
+						extraCount: extraIds.length,
+						districtsAffected: districtsExtra,
+						details: extraFeatures.slice(0, 10).map((feature: any) => ({
+							id: feature.properties?.idsubsls,
+							district: feature.properties?.nmdesa,
+							kddesa: feature.properties?.kddesa
+						}))
+					}
+				});
+			}
+
+			console.log(`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, SIPW: ${sipwIds.size}, Missing: ${missingIds.length}, Extra: ${extraIds.length}`);
+
+		} catch (error) {
+			console.error('Error checking SIPW data consistency:', error);
+			addAnomaly({
+				idsubsls: 'SIPW_CHECK_ERROR',
+				title: 'SIPW Validation Error',
+				severity: 'Medium',
+				description: 'Error occurred while validating GeoJSON against SIPW data',
+				coordinates: 'Unknown',
+				detectedAt: new Date().toLocaleString()
+			});
+		}
 	}
 
 	function triggerFileUpload() {
