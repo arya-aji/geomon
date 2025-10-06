@@ -10,6 +10,7 @@
 	let isUploading = false;
 	let geoJSONLayer: any = null;
 	let showAnomalyModal = false;
+	let showLabels = true; // Controls label visibility on map
 
 	// Anomaly data array - will be populated dynamically
 	let anomalies: any[] = [];
@@ -316,56 +317,65 @@
 				window.mapLabels = [];
 			}
 
-			// Check for duplicate idsubsls in current upload
-			const uploadedIds = new Set();
-			const duplicateFeatures: any[] = [];
+			// Rule 7: Check that all features belong to the same district (check first)
+			const districtValidation = checkSingleDistrictWithReturn(geoJson);
 
-			if (geoJson.type === 'FeatureCollection') {
-				geoJson.features.forEach((feature: any) => {
-					if (feature.properties && feature.properties.idsubsls) {
-						if (uploadedIds.has(feature.properties.idsubsls)) {
-							duplicateFeatures.push(feature);
-						} else {
-							uploadedIds.add(feature.properties.idsubsls);
+			// If Rule 7 fails, show FATAL ERROR and stop all processing
+			if (!districtValidation.passed) {
+				console.error('FATAL ERROR: Multiple districts detected in upload');
+
+				// Show fatal error alert
+				const districtList = districtValidation.anomalyData!.additionalInfo.districts.join(', ');
+				throw new Error(`FATAL ERROR: Multiple districts detected (${districtList}).\n\nONLY ACCEPT 1 DISTRICT PER UPLOAD.\n\nPlease upload a file containing only one district at a time.`);
+			} else {
+				// Rule 1: Check for duplicate idsubsls
+				const uploadedIds = new Set();
+				const duplicateFeatures: any[] = [];
+
+				if (geoJson.type === 'FeatureCollection') {
+					geoJson.features.forEach((feature: any) => {
+						if (feature.properties && feature.properties.idsubsls) {
+							if (uploadedIds.has(feature.properties.idsubsls)) {
+								duplicateFeatures.push(feature);
+							} else {
+								uploadedIds.add(feature.properties.idsubsls);
+							}
 						}
-					}
+					});
+				}
+
+				// Add duplicate idsubsls as anomalies
+				duplicateFeatures.forEach((feature: any) => {
+					const props = feature.properties;
+					const coordinates = extractCoordinates(feature.geometry);
+
+					const anomalyData = {
+						idsubsls: props.idsubsls,
+						title: `Duplicate ID: ${props.idsubsls}`,
+						severity: 'High',
+						description: `Duplicate idsubsls found in ${props.nmsls || 'unknown area'}`,
+						coordinates: coordinates,
+						properties: props
+					};
+
+					addAnomaly(anomalyData);
 				});
+
+				// Rule 2: Check for overlaps and gaps
+				checkTopologyIssues(geoJson);
+
+				// Rule 3: Check for polygons with interior rings (holes)
+				checkInteriorRings(geoJson);
+
+				// Rule 4: Check for area discrepancies (gaps/holes detected by area calculation)
+				checkAreaDiscrepancies(geoJson);
+
+				// Rule 5: Merge polygons by kddesa and check for holes
+				checkMergedPolygonHoles(geoJson);
+
+				// Rule 6: Check for invalid geometries
+				checkInvalidGeometries(geoJson);
 			}
-
-			// Add duplicate idsubsls as anomalies
-			duplicateFeatures.forEach((feature: any) => {
-				const props = feature.properties;
-				const coordinates = extractCoordinates(feature.geometry);
-
-				const anomalyData = {
-					idsubsls: props.idsubsls,
-					title: `Duplicate ID: ${props.idsubsls}`,
-					severity: 'High',
-					description: `Duplicate idsubsls found in ${props.nmsls || 'unknown area'}`,
-					coordinates: coordinates,
-					properties: props
-				};
-
-				addAnomaly(anomalyData);
-			});
-
-			// Rule 2: Check for overlaps and gaps
-			checkTopologyIssues(geoJson);
-
-			// Rule 3: Check for polygons with interior rings (holes)
-			checkInteriorRings(geoJson);
-
-			// Rule 4: Check for area discrepancies (gaps/holes detected by area calculation)
-			checkAreaDiscrepancies(geoJson);
-
-			// Rule 5: Merge polygons by kddesa and check for holes
-			checkMergedPolygonHoles(geoJson);
-
-			// Rule 6: Check for invalid geometries
-			checkInvalidGeometries(geoJson);
-
-			// Rule 7: Check that all features belong to the same district
-			checkSingleDistrict(geoJson);
 
 			// Add GeoJSON to map
 			geoJSONLayer = L.geoJSON(geoJson, {
@@ -393,8 +403,14 @@
 				map.fitBounds(geoJSONLayer.getBounds());
 			}
 		} catch (error) {
-			console.error('Error parsing GeoJSON:', error);
-			alert('Invalid GeoJSON file. Please upload a valid GeoJSON file.');
+			console.error('Error processing GeoJSON:', error);
+
+			// Check if this is a fatal error from multiple districts
+			if (error instanceof Error && error.message.includes('FATAL ERROR: Multiple districts detected')) {
+				alert(error.message);
+			} else {
+				alert('Invalid GeoJSON file. Please upload a valid GeoJSON file.');
+			}
 		} finally {
 			isUploading = false;
 		}
@@ -493,10 +509,15 @@
 			iconAnchor: [75, 15]
 		});
 
-		// Add label marker to the map
-		const labelMarker = L.marker([centroid.lat, centroid.lng], { icon: labelIcon }).addTo(map);
+		// Create label marker
+		const labelMarker = L.marker([centroid.lat, centroid.lng], { icon: labelIcon });
 
-		// Store reference to label for later removal
+		// Only add to map if labels are currently visible
+		if (showLabels) {
+			labelMarker.addTo(map);
+		}
+
+		// Store reference to label for later removal/toggling
 		if (!window.mapLabels) {
 			window.mapLabels = [];
 		}
@@ -1649,7 +1670,15 @@
 	}
 
 	function checkSingleDistrict(geoJson: any) {
-		if (geoJson.type !== 'FeatureCollection') return;
+		const result = checkSingleDistrictWithReturn(geoJson);
+		if (!result.passed) {
+			// Add the anomaly if check failed
+			addAnomaly(result.anomalyData!);
+		}
+	}
+
+	function checkSingleDistrictWithReturn(geoJson: any): { passed: boolean; anomalyData?: any } {
+		if (geoJson.type !== 'FeatureCollection') return { passed: true };
 
 		const districts = new Set<string>();
 		const featuresByDistrict: { [key: string]: any[] } = {};
@@ -1676,18 +1705,18 @@
 			}
 		});
 
-		// If no district information found, don't report as anomaly
+		// If no district information found, pass validation
 		if (!hasValidDistrictInfo) {
-			return;
+			return { passed: true };
 		}
 
-		// If more than one district found, report as anomaly
+		// If more than one district found, return failure with anomaly data
 		if (districts.size > 1) {
 			const districtList = Array.from(districts);
 			const firstFeature = geoJson.features[0];
 			const coordinates = firstFeature?.geometry ? extractCoordinates(firstFeature.geometry) : 'Unknown';
 
-			addAnomaly({
+			const anomalyData = {
 				idsubsls: 'MULTI_DISTRICT_FILE',
 				title: 'Multiple Districts in Single File',
 				severity: 'High',
@@ -1701,8 +1730,12 @@
 						count: featuresByDistrict[district]?.length || 0
 					}))
 				}
-			});
+			};
+
+			return { passed: false, anomalyData };
 		}
+
+		return { passed: true };
 	}
 
 	function triggerFileUpload() {
@@ -1715,6 +1748,21 @@
 
 	function closeAnomalyModal() {
 		showAnomalyModal = false;
+	}
+
+	function toggleLabels() {
+		showLabels = !showLabels;
+
+		// Toggle visibility of existing labels
+		if (window.mapLabels) {
+			window.mapLabels.forEach((label: any) => {
+				if (showLabels) {
+					label.addTo(map);
+				} else {
+					map.removeLayer(label);
+				}
+			});
+		}
 	}
 </script>
 
@@ -1924,10 +1972,18 @@
 							{/if}
 						</div>
 
+						<!-- Toggle Labels Button -->
+						<button
+							on:click={toggleLabels}
+							class="mt-4 w-full rounded-md bg-blue-100 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+						>
+							{showLabels ? '👁️ Hide Labels' : '👁️‍🗨️ Show Labels'}
+						</button>
+
 						<!-- View All Button -->
 						<button
 							on:click={openAnomalyModal}
-							class="mt-4 w-full rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:outline-none"
+							class="mt-2 w-full rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:outline-none"
 						>
 							View All Anomalies
 						</button>
