@@ -364,6 +364,9 @@
 			// Rule 6: Check for invalid geometries
 			checkInvalidGeometries(geoJson);
 
+			// Rule 7: Check that all features belong to the same district
+			checkSingleDistrict(geoJson);
+
 			// Add GeoJSON to map
 			geoJSONLayer = L.geoJSON(geoJson, {
 				style: {
@@ -1643,6 +1646,63 @@
 		}
 
 		return null;
+	}
+
+	function checkSingleDistrict(geoJson: any) {
+		if (geoJson.type !== 'FeatureCollection') return;
+
+		const districts = new Set<string>();
+		const featuresByDistrict: { [key: string]: any[] } = {};
+		let hasValidDistrictInfo = false;
+
+		// Collect all unique districts and group features by district
+		geoJson.features.forEach((feature: any, featureIndex: number) => {
+			if (feature.properties) {
+				const nmdesa = feature.properties.nmdesa;
+				const kddesa = feature.properties.kddesa;
+
+				// Use nmdesa as primary district identifier, fallback to kddesa
+				const districtId = nmdesa || kddesa;
+
+				if (districtId) {
+					hasValidDistrictInfo = true;
+					districts.add(districtId);
+
+					if (!featuresByDistrict[districtId]) {
+						featuresByDistrict[districtId] = [];
+					}
+					featuresByDistrict[districtId].push(feature);
+				}
+			}
+		});
+
+		// If no district information found, don't report as anomaly
+		if (!hasValidDistrictInfo) {
+			return;
+		}
+
+		// If more than one district found, report as anomaly
+		if (districts.size > 1) {
+			const districtList = Array.from(districts);
+			const firstFeature = geoJson.features[0];
+			const coordinates = firstFeature?.geometry ? extractCoordinates(firstFeature.geometry) : 'Unknown';
+
+			addAnomaly({
+				idsubsls: 'MULTI_DISTRICT_FILE',
+				title: 'Multiple Districts in Single File',
+				severity: 'High',
+				description: `File contains features from ${districts.size} different districts: ${districtList.join(', ')}. Each file should contain only one district.`,
+				coordinates: coordinates,
+				detectedAt: new Date().toLocaleString(),
+				additionalInfo: {
+					districts: districtList,
+					featureCounts: districtList.map(district => ({
+						district: district,
+						count: featuresByDistrict[district]?.length || 0
+					}))
+				}
+			});
+		}
 	}
 
 	function triggerFileUpload() {
