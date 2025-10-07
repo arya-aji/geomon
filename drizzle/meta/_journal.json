@@ -8,6 +8,13 @@
       "when": 1759740465967,
       "tag": "0000_tidy_rumiko_fujikawa",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1759803089704,
+      "tag": "0001_illegal_blue_marvel",
+      "breakpoints": true
     }
   ]
 }

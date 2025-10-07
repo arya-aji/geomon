@@ -44,3 +44,16 @@ export const sipw = pgTable('sipw', {
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()
 });
+
+// FRS (Frame Sensus) table - for tracking SLS changes
+export const frs = pgTable('frs', {
+	id: serial('id').primaryKey(),
+	idsls_before: varchar('idsls_before', { length: 20 }),
+	nama_sls_before: varchar('nama_sls_before', { length: 200 }),
+	idsls_after: varchar('idsls_after', { length: 20 }),
+	nama_sls_after: varchar('nama_sls_after', { length: 200 }),
+	ketua_sls: varchar('ketua_sls', { length: 100 }),
+	status: integer('status'),
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});

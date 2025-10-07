@@ -1878,63 +1878,57 @@
 				});
 			}
 
-			// Rule 8.2: Find missing IDs (in SIPW but not in GeoJSON)
+			// Rule 8.2: Find missing IDs (in SIPW but not in GeoJSON) - Create individual anomalies
 			const missingIds = [...sipwIds].filter((id) => !geoJsonIds.has(id));
 			if (missingIds.length > 0) {
 				const missingFeatures = sipwData.filter((item: any) => missingIds.includes(item.idsubsls));
-				const districtsMissing = [
-					...new Set(missingFeatures.map((item: any) => `${item.nmdesa} (${item.kddesa})`))
-				].join(', ');
 
-				addAnomaly({
-					idsubsls: 'MISSING_IN_GEOJSON',
-					title: 'Missing idsubsls in GeoJSON',
-					severity: 'High',
-					description: `${missingIds.length} idsubsls found in SIPW table but missing from GeoJSON: ${missingIds.slice(0, 5).join(', ')}${missingIds.length > 5 ? '...' : ''}`,
-					coordinates: 'Unknown',
-					detectedAt: new Date().toLocaleString(),
-					additionalInfo: {
-						missingIds: missingIds,
-						missingCount: missingIds.length,
-						districtsAffected: districtsMissing,
-						details: missingFeatures.slice(0, 10).map((item: any) => ({
-							id: item.idsubsls,
-							district: item.nmdesa,
-							kddesa: item.kddesa
-						}))
-					}
+				// Create individual anomaly for each missing idsubsls
+				missingFeatures.forEach((item: any) => {
+					addAnomaly({
+						idsubsls: item.idsubsls,
+						title: 'Missing idsubsls in GeoJSON',
+						severity: 'High',
+						description: `idsubsls ${item.idsubsls} found in SIPW table but missing from GeoJSON (District: ${item.nmdesa || 'Unknown'}, ${item.kddesa || 'Unknown'})`,
+						coordinates: 'Unknown',
+						detectedAt: new Date().toLocaleString(),
+						properties: {
+							anomalyType: 'missing_in_geojson',
+							sipwData: item,
+							nmdesa: item.nmdesa,
+							kddesa: item.kddesa,
+							nmkec: item.nmkec,
+							nmkab: item.nmkab
+						}
+					});
 				});
 			}
 
-			// Rule 8.3: Find extra IDs (in GeoJSON but not in SIPW)
+			// Rule 8.3: Find extra IDs (in GeoJSON but not in SIPW) - Create individual anomalies
 			const extraIds = [...geoJsonIds].filter((id) => !sipwIds.has(id));
 			if (extraIds.length > 0) {
-				const extraFeatures = extraIds.map((id) => featuresById[id]).filter(Boolean);
-				const districtsExtra = [
-					...new Set(
-						extraFeatures.map(
-							(feature: any) =>
-								`${feature.properties?.nmdesa || 'Unknown'} (${feature.properties?.kddesa || 'Unknown'})`
-						)
-					)
-				].join(', ');
-
-				addAnomaly({
-					idsubsls: 'EXTRA_IN_GEOJSON',
-					title: 'Extra idsubsls in GeoJSON',
-					severity: 'Medium',
-					description: `${extraIds.length} idsubsls found in GeoJSON but not in SIPW table: ${extraIds.slice(0, 5).join(', ')}${extraIds.length > 5 ? '...' : ''}`,
-					coordinates: 'Unknown',
-					detectedAt: new Date().toLocaleString(),
-					additionalInfo: {
-						extraIds: extraIds,
-						extraCount: extraIds.length,
-						districtsAffected: districtsExtra,
-						details: extraFeatures.slice(0, 10).map((feature: any) => ({
-							id: feature.properties?.idsubsls,
-							district: feature.properties?.nmdesa,
-							kddesa: feature.properties?.kddesa
-						}))
+				// Create individual anomaly for each extra idsubsls
+				extraIds.forEach((id) => {
+					const feature = featuresById[id];
+					if (feature && feature.properties) {
+						const props = feature.properties;
+						addAnomaly({
+							idsubsls: id,
+							title: 'Extra idsubsls in GeoJSON',
+							severity: 'Medium',
+							description: `idsubsls ${id} found in GeoJSON but not in SIPW table (District: ${props.nmdesa || 'Unknown'}, ${props.kddesa || 'Unknown'})`,
+							coordinates: extractCoordinates(feature.geometry),
+							detectedAt: new Date().toLocaleString(),
+							properties: {
+								anomalyType: 'extra_in_geojson',
+								geojsonFeature: feature,
+								nmdesa: props.nmdesa,
+								kddesa: props.kddesa,
+								nmkec: props.nmkec,
+								nmkab: props.nmkab,
+								nmsls: props.nmsls
+							}
+						});
 					}
 				});
 			}
@@ -1997,7 +1991,7 @@
 		<nav class="flex justify-center">
 			<div class="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
 				<a
-					href="/pengecekan"
+					href="/"
 					class="rounded-l-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
 				>
 					Pengecekan
@@ -2010,9 +2004,15 @@
 				</a>
 				<a
 					href="/data-sls"
-					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
 				>
 					Data SLS
+				</a>
+				<a
+					href="/perubahan"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Perubahan
 				</a>
 			</div>
 		</nav>

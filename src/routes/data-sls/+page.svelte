@@ -256,9 +256,15 @@
 				</a>
 				<a
 					href="/data-sls"
-					class="rounded-r-lg border-l border-gray-200 bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
+					class="border-l border-gray-200 bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
 				>
 					Data SLS
+				</a>
+				<a
+					href="/perubahan"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Perubahan
 				</a>
 			</div>
 		</nav>

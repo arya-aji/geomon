@@ -1,0 +1,344 @@
+{
+  "id": "b09a46a8-dce2-4ef9-80d2-7418e9544766",
+  "prevId": "e907a5a8-a3c6-4ea3-b323-62fb0e78b996",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.frs": {
+      "name": "frs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idsls_before": {
+          "name": "idsls_before",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls_before": {
+          "name": "nama_sls_before",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idsls_after": {
+          "name": "idsls_after",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls_after": {
+          "name": "nama_sls_after",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ketua_sls": {
+          "name": "ketua_sls",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sipw": {
+      "name": "sipw",
+      "schema": "",
+      "columns": {
+        "idsubsls": {
+          "name": "idsubsls",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idfrs": {
+          "name": "idfrs",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idsls": {
+          "name": "idsls",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdprov": {
+          "name": "kdprov",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdkab": {
+          "name": "kdkab",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdkec": {
+          "name": "kdkec",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kddesa": {
+          "name": "kddesa",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdsls": {
+          "name": "kdsls",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "klas": {
+          "name": "klas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmprov": {
+          "name": "nmprov",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmkab": {
+          "name": "nmkab",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmkec": {
+          "name": "nmkec",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmdesa": {
+          "name": "nmdesa",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls": {
+          "name": "nama_sls",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jenis_sls": {
+          "name": "jenis_sls",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ketua_sls": {
+          "name": "ketua_sls",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "semester_id": {
+          "name": "semester_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "semester": {
+          "name": "semester",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "j_subsls": {
+          "name": "j_subsls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_kk": {
+          "name": "muatan_kk",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "btt": {
+          "name": "btt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "btt_kosong": {
+          "name": "btt_kosong",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bku": {
+          "name": "bku",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bbtt_non_usaha": {
+          "name": "bbtt_non_usaha",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_usaha": {
+          "name": "muatan_usaha",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_total": {
+          "name": "muatan_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_wke": {
+          "name": "nama_wke",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jam_operasional": {
+          "name": "jam_operasional",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jumlah_shift": {
+          "name": "jumlah_shift",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telepon_email": {
+          "name": "telepon_email",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_dominan": {
+          "name": "muatan_dominan",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag_perubahan_sls": {
+          "name": "flag_perubahan_sls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kd_subsls": {
+          "name": "kd_subsls",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "age": {
+          "name": "age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
