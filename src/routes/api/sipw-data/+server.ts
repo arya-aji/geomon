@@ -15,7 +15,8 @@ export async function GET() {
 		return json(results);
 	} catch (err) {
 		console.error('Error fetching SIPW data:', err);
-		return error(500, `Internal server error: ${err.message}`);
+		const message = err instanceof Error ? err.message : String(err);
+		return error(500, `Internal server error: ${message}`);
 	}
 }
 
@@ -50,6 +51,7 @@ export async function POST({ request }) {
 		return json(results);
 	} catch (err) {
 		console.error('Error fetching SIPW data:', err);
-		return error(500, `Internal server error: ${err.message}`);
+		const message = err instanceof Error ? err.message : String(err);
+		return error(500, `Internal server error: ${message}`);
 	}
 }

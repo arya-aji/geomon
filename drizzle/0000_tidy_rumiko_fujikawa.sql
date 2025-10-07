@@ -1,5 +1,5 @@
 CREATE TABLE "sipw" (
-	"id_subsls" varchar(20) PRIMARY KEY NOT NULL,
+	"idsubsls" varchar(20) PRIMARY KEY NOT NULL,
 	"idfrs" varchar(20),
 	"idsls" varchar(20),
 	"kdprov" varchar(5),

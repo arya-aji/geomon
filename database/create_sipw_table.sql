@@ -2,7 +2,7 @@
 -- SIPW (Sensus Lingkungan Sementara) data table
 
 CREATE TABLE IF NOT EXISTS sipw (
-    id_subsls VARCHAR(20) PRIMARY KEY,
+    idsubsls VARCHAR(20) PRIMARY KEY,
     idfrs VARCHAR(20),
     idsls VARCHAR(20),
     kdprov VARCHAR(5),
@@ -47,8 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_sipw_nmprov ON sipw(nmprov);
 CREATE INDEX IF NOT EXISTS idx_sipw_nmkab ON sipw(nmkab);
 
 -- Add comments for documentation
-COMMENT ON TABLE sipw IS 'Sensus Lingkungan Sementara (SLS) data for monitoring purposes';
-COMMENT ON COLUMN sipw.id_subsls IS 'Unique identifier for SLS sub-unit';
+COMMENT ON TABLE sipw IS 'SLS data for monitoring purposes';
+COMMENT ON COLUMN sipw.idsubsls IS 'Unique identifier for SLS sub-unit';
 COMMENT ON COLUMN sipw.kddesa IS 'District code';
 COMMENT ON COLUMN sipw.nmdesa IS 'District name';
 COMMENT ON COLUMN sipw.muatan_kk IS 'Number of households';

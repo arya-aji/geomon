@@ -5,9 +5,9 @@ export const user = pgTable('user', {
 	age: integer('age')
 });
 
-// SIPW (Sensus Lingkungan Sementara) table
+// SIPW (SSLS) table
 export const sipw = pgTable('sipw', {
-	id_subsls: varchar('id_subsls', { length: 20 }).primaryKey(),
+	idsubsls: varchar('idsubsls', { length: 20 }).primaryKey(),
 	idfrs: varchar('idfrs', { length: 20 }),
 	idsls: varchar('idsls', { length: 20 }),
 	kdprov: varchar('kdprov', { length: 5 }),

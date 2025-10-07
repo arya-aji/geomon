@@ -126,7 +126,6 @@
 			fillOpacity: 0,
 			color: '#ff0000',
 			weight: 3,
-			weight: 3,
 			dashArray: '10, 5',
 			opacity: 1
 		}).addTo(map);
@@ -326,7 +325,9 @@
 
 				// Show fatal error alert
 				const districtList = districtValidation.anomalyData!.additionalInfo.districts.join(', ');
-				throw new Error(`FATAL ERROR: Multiple districts detected (${districtList}).\n\nONLY ACCEPT 1 DISTRICT PER UPLOAD.\n\nPlease upload a file containing only one district at a time.`);
+				throw new Error(
+					`FATAL ERROR: Multiple districts detected (${districtList}).\n\nONLY ACCEPT 1 DISTRICT PER UPLOAD.\n\nPlease upload a file containing only one district at a time.`
+				);
 			} else {
 				// Rule 1: Check for duplicate idsubsls
 				const uploadedIds = new Set();
@@ -409,7 +410,10 @@
 			console.error('Error processing GeoJSON:', error);
 
 			// Check if this is a fatal error from multiple districts
-			if (error instanceof Error && error.message.includes('FATAL ERROR: Multiple districts detected')) {
+			if (
+				error instanceof Error &&
+				error.message.includes('FATAL ERROR: Multiple districts detected')
+			) {
 				alert(error.message);
 			} else {
 				alert('Invalid GeoJSON file. Please upload a valid GeoJSON file.');
@@ -1608,7 +1612,8 @@
 		const duplicates: number[] = [];
 		const seen = new Set<string>();
 
-		for (let i = 0; i < ring.length - 1; i++) { // Skip last vertex as it's same as first
+		for (let i = 0; i < ring.length - 1; i++) {
+			// Skip last vertex as it's same as first
 			const key = `${ring[i][0]},${ring[i][1]}`;
 			if (seen.has(key)) {
 				duplicates.push(i);
@@ -1635,9 +1640,7 @@
 				const seg2Start = ring[j];
 				const seg2End = ring[(j + 1) % n];
 
-				const intersection = getLineIntersection(
-					seg1Start, seg1End, seg2Start, seg2End
-				);
+				const intersection = getLineIntersection(seg1Start, seg1End, seg2Start, seg2End);
 
 				if (intersection) {
 					intersections.push(intersection);
@@ -1649,12 +1652,19 @@
 	}
 
 	function getLineIntersection(
-		p1: number[], p2: number[], p3: number[], p4: number[]
+		p1: number[],
+		p2: number[],
+		p3: number[],
+		p4: number[]
 	): number[] | null {
-		const x1 = p1[0], y1 = p1[1];
-		const x2 = p2[0], y2 = p2[1];
-		const x3 = p3[0], y3 = p3[1];
-		const x4 = p4[0], y4 = p4[1];
+		const x1 = p1[0],
+			y1 = p1[1];
+		const x2 = p2[0],
+			y2 = p2[1];
+		const x3 = p3[0],
+			y3 = p3[1];
+		const x4 = p4[0],
+			y4 = p4[1];
 
 		const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
 		if (Math.abs(denom) < 1e-10) return null; // Lines are parallel
@@ -1717,7 +1727,9 @@
 		if (districts.size > 1) {
 			const districtList = Array.from(districts);
 			const firstFeature = geoJson.features[0];
-			const coordinates = firstFeature?.geometry ? extractCoordinates(firstFeature.geometry) : 'Unknown';
+			const coordinates = firstFeature?.geometry
+				? extractCoordinates(firstFeature.geometry)
+				: 'Unknown';
 
 			const anomalyData = {
 				idsubsls: 'MULTI_DISTRICT_FILE',
@@ -1728,7 +1740,7 @@
 				detectedAt: new Date().toLocaleString(),
 				additionalInfo: {
 					districts: districtList,
-					featureCounts: districtList.map(district => ({
+					featureCounts: districtList.map((district) => ({
 						district: district,
 						count: featuresByDistrict[district]?.length || 0
 					}))
@@ -1784,7 +1796,7 @@
 				sipwResponse = await fetch('/api/sipw-data', {
 					method: 'POST',
 					headers: {
-						'Content-Type': 'application/json',
+						'Content-Type': 'application/json'
 					},
 					body: JSON.stringify({
 						districts: Array.from(geoJsonDistricts),
@@ -1867,10 +1879,12 @@
 			}
 
 			// Rule 8.2: Find missing IDs (in SIPW but not in GeoJSON)
-			const missingIds = [...sipwIds].filter(id => !geoJsonIds.has(id));
+			const missingIds = [...sipwIds].filter((id) => !geoJsonIds.has(id));
 			if (missingIds.length > 0) {
 				const missingFeatures = sipwData.filter((item: any) => missingIds.includes(item.idsubsls));
-				const districtsMissing = [...new Set(missingFeatures.map((item: any) => `${item.nmdesa} (${item.kddesa})`))].join(', ');
+				const districtsMissing = [
+					...new Set(missingFeatures.map((item: any) => `${item.nmdesa} (${item.kddesa})`))
+				].join(', ');
 
 				addAnomaly({
 					idsubsls: 'MISSING_IN_GEOJSON',
@@ -1893,12 +1907,17 @@
 			}
 
 			// Rule 8.3: Find extra IDs (in GeoJSON but not in SIPW)
-			const extraIds = [...geoJsonIds].filter(id => !sipwIds.has(id));
+			const extraIds = [...geoJsonIds].filter((id) => !sipwIds.has(id));
 			if (extraIds.length > 0) {
-				const extraFeatures = extraIds.map(id => featuresById[id]).filter(Boolean);
-				const districtsExtra = [...new Set(extraFeatures.map((feature: any) =>
-					`${feature.properties?.nmdesa || 'Unknown'} (${feature.properties?.kddesa || 'Unknown'})`
-				))].join(', ');
+				const extraFeatures = extraIds.map((id) => featuresById[id]).filter(Boolean);
+				const districtsExtra = [
+					...new Set(
+						extraFeatures.map(
+							(feature: any) =>
+								`${feature.properties?.nmdesa || 'Unknown'} (${feature.properties?.kddesa || 'Unknown'})`
+						)
+					)
+				].join(', ');
 
 				addAnomaly({
 					idsubsls: 'EXTRA_IN_GEOJSON',
@@ -1920,8 +1939,9 @@
 				});
 			}
 
-			console.log(`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, SIPW: ${sipwIds.size}, Missing: ${missingIds.length}, Extra: ${extraIds.length}`);
-
+			console.log(
+				`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, SIPW: ${sipwIds.size}, Missing: ${missingIds.length}, Extra: ${extraIds.length}`
+			);
 		} catch (error) {
 			console.error('Error checking SIPW data consistency:', error);
 			addAnomaly({
@@ -1971,7 +1991,31 @@
 	<!-- Header -->
 	<header class="mb-8 text-center">
 		<h1 class="mb-2 text-6xl font-bold text-gray-900">GEOMON</h1>
-		<p class="text-xl text-gray-600">Geospasial Monitoring</p>
+		<p class="mb-6 text-xl text-gray-600">Geospasial Monitoring</p>
+
+		<!-- Navigation Menu -->
+		<nav class="flex justify-center">
+			<div class="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
+				<a
+					href="/pengecekan"
+					class="rounded-l-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
+				>
+					Pengecekan
+				</a>
+				<a
+					href="/monitoring"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Monitoring
+				</a>
+				<a
+					href="/data-sls"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Data SLS
+				</a>
+			</div>
+		</nav>
 	</header>
 
 	<!-- Main Content Grid -->

@@ -8,8 +8,8 @@
       "name": "sipw",
       "schema": "",
       "columns": {
-        "id_subsls": {
-          "name": "id_subsls",
+        "idsubsls": {
+          "name": "idsubsls",
           "type": "varchar(20)",
           "primaryKey": true,
           "notNull": true

@@ -14,8 +14,8 @@ const __dirname = path.dirname(__filename);
 // Read database URL from environment
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  console.error('DATABASE_URL environment variable is not set');
-  process.exit(1);
+	console.error('DATABASE_URL environment variable is not set');
+	process.exit(1);
 }
 
 // Create database connection
@@ -23,105 +23,105 @@ const sql = neon(databaseUrl);
 
 // Function to parse integer values safely
 function parseInteger(value) {
-  if (value === '' || value === null || value === undefined || value === '-') {
-    return null;
-  }
-  const parsed = parseInt(value, 10);
-  return isNaN(parsed) ? null : parsed;
+	if (value === '' || value === null || value === undefined || value === '-') {
+		return null;
+	}
+	const parsed = parseInt(value, 10);
+	return isNaN(parsed) ? null : parsed;
 }
 
 // Function to clean string values
 function cleanString(value) {
-  if (value === '' || value === null || value === undefined || value === '-') {
-    return null;
-  }
-  return value.trim();
+	if (value === '' || value === null || value === undefined || value === '-') {
+		return null;
+	}
+	return value.trim();
 }
 
 async function importSIPWData() {
-  console.log('Starting SIPW data import...');
+	console.log('Starting SIPW data import...');
 
-  const csvFilePath = path.join(__dirname, '../data/SIPW.csv');
-  const results = [];
-  let importedCount = 0;
-  let errorCount = 0;
+	const csvFilePath = path.join(__dirname, '../data/SIPW.csv');
+	const results = [];
+	let importedCount = 0;
+	let errorCount = 0;
 
-  try {
-    // Check if CSV file exists
-    if (!fs.existsSync(csvFilePath)) {
-      console.error(`CSV file not found: ${csvFilePath}`);
-      process.exit(1);
-    }
+	try {
+		// Check if CSV file exists
+		if (!fs.existsSync(csvFilePath)) {
+			console.error(`CSV file not found: ${csvFilePath}`);
+			process.exit(1);
+		}
 
-    // Read and parse CSV file
-    console.log('Reading CSV file...');
+		// Read and parse CSV file
+		console.log('Reading CSV file...');
 
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(csvFilePath)
-        .pipe(csv({ separator: ';' }))
-        .on('data', (data) => {
-          results.push(data);
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
+		await new Promise((resolve, reject) => {
+			fs.createReadStream(csvFilePath)
+				.pipe(csv({ separator: ';' }))
+				.on('data', (data) => {
+					results.push(data);
+				})
+				.on('end', resolve)
+				.on('error', reject);
+		});
 
-    console.log(`Found ${results.length} records to import`);
+		console.log(`Found ${results.length} records to import`);
 
-    // Process each row and insert into database
-    for (let i = 0; i < results.length; i++) {
-      const row = results[i];
+		// Process each row and insert into database
+		for (let i = 0; i < results.length; i++) {
+			const row = results[i];
 
-      try {
-        // Transform CSV data to match database schema
-        const sipwData = {
-          id_subsls: cleanString(row.id_subsls),
-          idfrs: cleanString(row.idfrs),
-          idsls: cleanString(row.idsls),
-          kdprov: cleanString(row.kdprov),
-          kdkab: cleanString(row.kdkab),
-          kdkec: cleanString(row.kdkec),
-          kddesa: cleanString(row.kddesa),
-          kdsls: cleanString(row.kdsls),
-          klas: parseInteger(row.klas),
-          nmprov: cleanString(row.nmprov),
-          nmkab: cleanString(row.nmkab),
-          nmkec: cleanString(row.nmkec),
-          nmdesa: cleanString(row.nmdesa),
-          nama_sls: cleanString(row.nama_sls),
-          jenis_sls: cleanString(row.jenis_sls),
-          ketua_sls: cleanString(row.ketua_sls),
-          semester_id: parseInteger(row.semester_id),
-          semester: cleanString(row.semester),
-          j_subsls: parseInteger(row.j_subsls),
-          muatan_kk: parseInteger(row.muatan_kk),
-          btt: parseInteger(row.btt),
-          btt_kosong: parseInteger(row.btt_kosong),
-          bku: parseInteger(row.bku),
-          bbtt_non_usaha: parseInteger(row.bbtt_non_usaha),
-          muatan_usaha: parseInteger(row.muatan_usaha),
-          muatan_total: parseInteger(row.muatan_total),
-          nama_wke: cleanString(row.nama_wke),
-          jam_operasional: cleanString(row.jam_operasional),
-          jumlah_shift: parseInteger(row.jumlah_shift),
-          telepon_email: cleanString(row.telepon_email),
-          muatan_dominan: parseInteger(row.muatan_dominan),
-          flag_perubahan_sls: parseInteger(row.flag_perubahan_sls),
-          is_deleted: parseInteger(row.is_deleted),
-          kd_subsls: cleanString(row.kd_subsls)
-        };
+			try {
+				// Transform CSV data to match database schema
+				const sipwData = {
+					idsubsls: cleanString(row.idsubsls),
+					idfrs: cleanString(row.idfrs),
+					idsls: cleanString(row.idsls),
+					kdprov: cleanString(row.kdprov),
+					kdkab: cleanString(row.kdkab),
+					kdkec: cleanString(row.kdkec),
+					kddesa: cleanString(row.kddesa),
+					kdsls: cleanString(row.kdsls),
+					klas: parseInteger(row.klas),
+					nmprov: cleanString(row.nmprov),
+					nmkab: cleanString(row.nmkab),
+					nmkec: cleanString(row.nmkec),
+					nmdesa: cleanString(row.nmdesa),
+					nama_sls: cleanString(row.nama_sls),
+					jenis_sls: cleanString(row.jenis_sls),
+					ketua_sls: cleanString(row.ketua_sls),
+					semester_id: parseInteger(row.semester_id),
+					semester: cleanString(row.semester),
+					j_subsls: parseInteger(row.j_subsls),
+					muatan_kk: parseInteger(row.muatan_kk),
+					btt: parseInteger(row.btt),
+					btt_kosong: parseInteger(row.btt_kosong),
+					bku: parseInteger(row.bku),
+					bbtt_non_usaha: parseInteger(row.bbtt_non_usaha),
+					muatan_usaha: parseInteger(row.muatan_usaha),
+					muatan_total: parseInteger(row.muatan_total),
+					nama_wke: cleanString(row.nama_wke),
+					jam_operasional: cleanString(row.jam_operasional),
+					jumlah_shift: parseInteger(row.jumlah_shift),
+					telepon_email: cleanString(row.telepon_email),
+					muatan_dominan: parseInteger(row.muatan_dominan),
+					flag_perubahan_sls: parseInteger(row.flag_perubahan_sls),
+					is_deleted: parseInteger(row.is_deleted),
+					kd_subsls: cleanString(row.kd_subsls)
+				};
 
-        // Insert data into database
-        await sql`
+				// Insert data into database
+				await sql`
           INSERT INTO sipw (
-            id_subsls, idfrs, idsls, kdprov, kdkab, kdkec, kddesa, kdsls, klas,
+            idsubsls, idfrs, idsls, kdprov, kdkab, kdkec, kddesa, kdsls, klas,
             nmprov, nmkab, nmkec, nmdesa, nama_sls, jenis_sls, ketua_sls,
             semester_id, semester, j_subsls, muatan_kk, btt, btt_kosong, bku,
             bbtt_non_usaha, muatan_usaha, muatan_total, nama_wke, jam_operasional,
             jumlah_shift, telepon_email, muatan_dominan, flag_perubahan_sls,
             is_deleted, kd_subsls, created_at, updated_at
           ) VALUES (
-            ${sipwData.id_subsls}, ${sipwData.idfrs}, ${sipwData.idsls},
+            ${sipwData.idsubsls}, ${sipwData.idfrs}, ${sipwData.idsls},
             ${sipwData.kdprov}, ${sipwData.kdkab}, ${sipwData.kdkec},
             ${sipwData.kddesa}, ${sipwData.kdsls}, ${sipwData.klas},
             ${sipwData.nmprov}, ${sipwData.nmkab}, ${sipwData.nmkec},
@@ -135,7 +135,7 @@ async function importSIPWData() {
             ${sipwData.flag_perubahan_sls}, ${sipwData.is_deleted},
             ${sipwData.kd_subsls}, NOW(), NOW()
           )
-          ON CONFLICT (id_subsls) DO UPDATE SET
+          ON CONFLICT (idsubsls) DO UPDATE SET
             idfrs = EXCLUDED.idfrs,
             idsls = EXCLUDED.idsls,
             kdprov = EXCLUDED.kdprov,
@@ -172,34 +172,32 @@ async function importSIPWData() {
             updated_at = NOW()
         `;
 
-        importedCount++;
+				importedCount++;
 
-        // Progress indicator
-        if ((i + 1) % 100 === 0) {
-          console.log(`Processed ${i + 1}/${results.length} records...`);
-        }
+				// Progress indicator
+				if ((i + 1) % 100 === 0) {
+					console.log(`Processed ${i + 1}/${results.length} records...`);
+				}
+			} catch (error) {
+				console.error(`Error importing row ${i + 1} (${row.idsubsls}):`, error.message);
+				errorCount++;
+			}
+		}
 
-      } catch (error) {
-        console.error(`Error importing row ${i + 1} (${row.id_subsls}):`, error.message);
-        errorCount++;
-      }
-    }
+		console.log('\n=== Import Summary ===');
+		console.log(`Total records processed: ${results.length}`);
+		console.log(`Successfully imported: ${importedCount}`);
+		console.log(`Errors encountered: ${errorCount}`);
 
-    console.log('\n=== Import Summary ===');
-    console.log(`Total records processed: ${results.length}`);
-    console.log(`Successfully imported: ${importedCount}`);
-    console.log(`Errors encountered: ${errorCount}`);
-
-    if (importedCount > 0) {
-      console.log('\n✅ Import completed successfully!');
-    } else {
-      console.log('\n❌ Import failed - no records were imported');
-    }
-
-  } catch (error) {
-    console.error('Fatal error during import:', error);
-    process.exit(1);
-  }
+		if (importedCount > 0) {
+			console.log('\n✅ Import completed successfully!');
+		} else {
+			console.log('\n❌ Import failed - no records were imported');
+		}
+	} catch (error) {
+		console.error('Fatal error during import:', error);
+		process.exit(1);
+	}
 }
 
 // Run the import
