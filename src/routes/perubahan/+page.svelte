@@ -34,7 +34,6 @@
 	let itemsPerPage = 20;
 	let totalPages = $derived(Math.ceil(getFilteredDataCount() / itemsPerPage));
 
-	
 	async function fetchFRSData() {
 		isLoading = true;
 		error = null;
@@ -66,7 +65,14 @@
 			error = 'Failed to load FRS data';
 		} finally {
 			isLoading = false;
-			console.log('Fetch completed. Final state - isLoading:', isLoading, 'error:', error, 'frsData.length:', frsData.length);
+			console.log(
+				'Fetch completed. Final state - isLoading:',
+				isLoading,
+				'error:',
+				error,
+				'frsData.length:',
+				frsData.length
+			);
 		}
 	}
 
@@ -77,13 +83,13 @@
 
 		// Apply status filter
 		if (selectedStatus !== null) {
-			filteredData = filteredData.filter(item => item.status === selectedStatus);
+			filteredData = filteredData.filter((item) => item.status === selectedStatus);
 		}
 
 		// Apply search filter
 		if (searchQuery.trim() !== '') {
 			const query = searchQuery.toLowerCase().trim();
-			filteredData = filteredData.filter(item => {
+			filteredData = filteredData.filter((item) => {
 				return (
 					// Search in ID SLS before
 					(item.idsls_before && item.idsls_before.toLowerCase().includes(query)) ||
@@ -111,13 +117,13 @@
 
 		// Apply status filter
 		if (selectedStatus !== null) {
-			filteredData = filteredData.filter(item => item.status === selectedStatus);
+			filteredData = filteredData.filter((item) => item.status === selectedStatus);
 		}
 
 		// Apply search filter
 		if (searchQuery.trim() !== '') {
 			const query = searchQuery.toLowerCase().trim();
-			filteredData = filteredData.filter(item => {
+			filteredData = filteredData.filter((item) => {
 				return (
 					(item.idsls_before && item.idsls_before.toLowerCase().includes(query)) ||
 					(item.idsls_after && item.idsls_after.toLowerCase().includes(query)) ||
@@ -168,25 +174,39 @@
 
 	function getStatusColor(status: number): string {
 		switch (status) {
-			case 1: return 'bg-blue-100 text-blue-800'; // Pemekaran
-			case 2: return 'bg-red-100 text-red-800';   // Penggabungan
-			case 3: return 'bg-yellow-100 text-yellow-800'; // Perubahan Jenis
-			case 4: return 'bg-purple-100 text-purple-800'; // Perubahan Tingkatan
-			case 5: return 'bg-green-100 text-green-800';  // Perubahan Kode
-			case 6: return 'bg-orange-100 text-orange-800'; // Perubahan Ketua/Nama
-			default: return 'bg-gray-100 text-gray-800';
+			case 1:
+				return 'bg-blue-100 text-blue-800'; // Pemekaran
+			case 2:
+				return 'bg-red-100 text-red-800'; // Penggabungan
+			case 3:
+				return 'bg-yellow-100 text-yellow-800'; // Perubahan Jenis
+			case 4:
+				return 'bg-purple-100 text-purple-800'; // Perubahan Tingkatan
+			case 5:
+				return 'bg-green-100 text-green-800'; // Perubahan Kode
+			case 6:
+				return 'bg-orange-100 text-orange-800'; // Perubahan Ketua/Nama
+			default:
+				return 'bg-gray-100 text-gray-800';
 		}
 	}
 
 	function getStatusIcon(status: number): string {
 		switch (status) {
-			case 1: return '➕'; // Pemekaran (addition)
-			case 2: return '🔗'; // Penggabungan (merge)
-			case 3: return '🔄'; // Perubahan Jenis (type change)
-			case 4: return '⬆️'; // Perubahan Tingkatan (level up/down)
-			case 5: return '🏷️'; // Perubahan Kode (code change)
-			case 6: return '✏️'; // Perubahan Ketua/Nama (name change)
-			default: return '❓';
+			case 1:
+				return '➕'; // Pemekaran (addition)
+			case 2:
+				return '🔗'; // Penggabungan (merge)
+			case 3:
+				return '🔄'; // Perubahan Jenis (type change)
+			case 4:
+				return '⬆️'; // Perubahan Tingkatan (level up/down)
+			case 5:
+				return '🏷️'; // Perubahan Kode (code change)
+			case 6:
+				return '✏️'; // Perubahan Ketua/Nama (name change)
+			default:
+				return '❓';
 		}
 	}
 
@@ -232,6 +252,12 @@
 				>
 					Perubahan
 				</a>
+				<a
+					href="/manage-files"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Manage Files
+				</a>
 			</div>
 		</nav>
 	</header>
@@ -257,10 +283,10 @@
 			</div>
 
 			<!-- Search Bar -->
-			<div class="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-				<div class="flex flex-col sm:flex-row sm:items-center gap-4">
+			<div class="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-center">
 					<div class="flex-1">
-						<label for="search-input" class="block text-sm font-medium text-gray-700 mb-2">
+						<label for="search-input" class="mb-2 block text-sm font-medium text-gray-700">
 							Cari Perubahan SLS:
 						</label>
 						<div class="relative">
@@ -269,7 +295,7 @@
 								id="search-input"
 								bind:value={searchQuery}
 								placeholder="Cari berdasarkan ID SLS, Nama SLS, atau Ketua SLS..."
-								class="w-full px-4 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+								class="w-full rounded-md border border-gray-300 px-4 py-2 pr-10 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
 							/>
 							<div class="absolute inset-y-0 right-0 flex items-center pr-3">
 								<svg
@@ -297,18 +323,18 @@
 			</div>
 
 			<!-- Status Filter -->
-			<div class="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+			<div class="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<div>
-						<label for="status-filter" class="block text-sm font-medium text-gray-700 mb-2 sm:mb-0">
+						<label for="status-filter" class="mb-2 block text-sm font-medium text-gray-700 sm:mb-0">
 							Filter Status:
 						</label>
 					</div>
 					<div class="flex flex-wrap gap-2">
 						<button
 							type="button"
-							onclick={() => selectedStatus = null}
-							class="px-4 py-2 text-sm font-medium rounded-md {selectedStatus === null
+							onclick={() => (selectedStatus = null)}
+							class="rounded-md px-4 py-2 text-sm font-medium {selectedStatus === null
 								? 'bg-blue-600 text-white'
 								: 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors"
 						>
@@ -317,8 +343,9 @@
 						{#each Object.entries(statusTypes) as [status, label]}
 							<button
 								type="button"
-								onclick={() => selectedStatus = parseInt(status)}
-								class="px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 {selectedStatus === parseInt(status)
+								onclick={() => (selectedStatus = parseInt(status))}
+								class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium {selectedStatus ===
+								parseInt(status)
 									? 'bg-blue-600 text-white'
 									: 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition-colors"
 							>
@@ -334,7 +361,9 @@
 
 			{#if isLoading}
 				<div class="py-12 text-center">
-					<div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+					<div
+						class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"
+					></div>
 					<p class="mt-4 text-sm text-gray-600">Memuat data...</p>
 					<p class="mt-2 text-xs text-gray-500">Mengambil {frsData.length} data perubahan SLS...</p>
 				</div>
@@ -342,7 +371,12 @@
 				<div class="py-12 text-center">
 					<div class="mx-auto h-12 w-12 text-red-400">
 						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							></path>
 						</svg>
 					</div>
 					<p class="mt-2 text-sm text-gray-600">Terjadi kesalahan: {error}</p>
@@ -351,8 +385,8 @@
 				<div class="mb-4 flex items-center justify-between">
 					<p class="text-sm text-gray-600">
 						Menampilkan {getPaginatedData().length} dari {getFilteredDataCount()} perubahan SLS
-						{selectedStatus !== null || searchQuery.trim() !== '' ?
-							`(Filter: ${selectedStatus !== null ? statusTypes[selectedStatus] : ''}${searchQuery.trim() !== '' ? (selectedStatus !== null ? ', ' : '') + `Pencarian: "${searchQuery}"` : ''})`
+						{selectedStatus !== null || searchQuery.trim() !== ''
+							? `(Filter: ${selectedStatus !== null ? statusTypes[selectedStatus] : ''}${searchQuery.trim() !== '' ? (selectedStatus !== null ? ', ' : '') + `Pencarian: "${searchQuery}"` : ''})`
 							: ''}
 					</p>
 				</div>
@@ -361,25 +395,39 @@
 					<table class="min-w-full divide-y divide-gray-200">
 						<thead class="bg-gray-50">
 							<tr>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									Status
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									ID SLS Sebelum
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									Nama SLS Sebelum
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									ID SLS Sesudah
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									Nama SLS Sesudah
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									Ketua SLS
 								</th>
-								<th class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
 									Tanggal Perubahan
 								</th>
 							</tr>
@@ -391,22 +439,24 @@
 										<div class="flex items-center space-x-2">
 											<span class="text-lg">{getStatusIcon(item.status)}</span>
 											<span
-												class="inline-flex rounded-full px-2 py-1 text-xs font-medium {getStatusColor(item.status)}"
+												class="inline-flex rounded-full px-2 py-1 text-xs font-medium {getStatusColor(
+													item.status
+												)}"
 											>
 												{statusTypes[item.status]}
 											</span>
 										</div>
 									</td>
-									<td class="px-6 py-4 text-sm whitespace-nowrap font-medium text-gray-900">
+									<td class="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
 										{item.idsls_before || '-'}
 										{#if item.status === 2}
-											<span class="ml-2 text-xs text-red-600 font-normal">(akan dihapus)</span>
+											<span class="ml-2 text-xs font-normal text-red-600">(akan dihapus)</span>
 										{/if}
 									</td>
 									<td class="px-6 py-4 text-sm text-gray-600">
 										{item.nama_sls_before || '-'}
 									</td>
-									<td class="px-6 py-4 text-sm whitespace-nowrap font-medium text-gray-900">
+									<td class="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
 										{item.idsls_after || '-'}
 									</td>
 									<td class="px-6 py-4 text-sm text-gray-600">
@@ -467,7 +517,12 @@
 				<div class="py-12 text-center">
 					<div class="mx-auto h-12 w-12 text-gray-400">
 						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							></path>
 						</svg>
 					</div>
 					<p class="mt-2 text-sm text-gray-600">Tidak ada data perubahan yang ditemukan</p>

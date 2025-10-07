@@ -15,6 +15,15 @@
 	// Anomaly data array - will be populated dynamically
 	let anomalies: any[] = [];
 
+	// Save functionality state
+	let isSaving = false;
+	let originalFileName = '';
+	let districtCode = '';
+	let districtName = '';
+	let kecamatanName = '';
+	let kabupatenName = '';
+	let savedFileId: number | null = null;
+
 	// Function to add anomaly with duplicate check based on idsubsls
 	function addAnomaly(anomalyData: any) {
 		// Check if anomaly with same idsubsls already exists
@@ -302,6 +311,7 @@
 			const geoJson = JSON.parse(text) as GeoJSON.GeoJsonObject;
 
 			uploadedGeoJSON = geoJson;
+			originalFileName = file.name;
 
 			// Remove existing GeoJSON layer if exists
 			if (geoJSONLayer) {
@@ -329,6 +339,17 @@
 					`FATAL ERROR: Multiple districts detected (${districtList}).\n\nONLY ACCEPT 1 DISTRICT PER UPLOAD.\n\nPlease upload a file containing only one district at a time.`
 				);
 			} else {
+				// Extract district information from first feature
+				if (geoJson.type === 'FeatureCollection' && geoJson.features.length > 0) {
+					const firstFeature = geoJson.features[0];
+					if (firstFeature.properties) {
+						districtCode = firstFeature.properties.kddesa || firstFeature.properties.nmdesa || 'unknown';
+						districtName = firstFeature.properties.nmdesa || 'unknown';
+						kecamatanName = firstFeature.properties.nmkec || 'unknown';
+						kabupatenName = firstFeature.properties.nmkab || 'unknown';
+					}
+				}
+
 				// Rule 1: Check for duplicate idsubsls
 				const uploadedIds = new Set();
 				const duplicateFeatures: any[] = [];
@@ -2088,6 +2109,68 @@
 			});
 		}
 	}
+
+	async function saveGeoJSON() {
+		if (!uploadedGeoJSON || !originalFileName) {
+			alert('Tidak ada data GeoJSON untuk disimpan');
+			return;
+		}
+
+		isSaving = true;
+
+		try {
+			// Calculate anomaly summary
+			const anomalySummary = {
+				total: anomalies.length,
+				byType: anomalies.reduce((acc: any, anomaly) => {
+					const type = anomaly.properties?.anomalyType || 'unknown';
+					acc[type] = (acc[type] || 0) + 1;
+					return acc;
+				}, {}),
+				bySeverity: anomalies.reduce((acc: any, anomaly) => {
+					const severity = anomaly.severity || 'Unknown';
+					acc[severity] = (acc[severity] || 0) + 1;
+					return acc;
+				}, {})
+			};
+
+			const response = await fetch('/api/save-geojson', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					geojsonData: uploadedGeoJSON,
+					anomalies: anomalies,
+					anomalySummary,
+					originalFilename: originalFileName,
+					districtCode: districtCode,
+					districtName: districtName,
+					kecamatanName: kecamatanName,
+					kabupatenName: kabupatenName,
+					userId: 'anonymous', // You can get this from auth system later
+					changeNotes: savedFileId ? 'Updated after review' : 'Initial upload',
+					revisionType: savedFileId ? 'correction' : 'new_data',
+					existingFileId: savedFileId || undefined
+				})
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				savedFileId = result.fileId;
+				alert(`GeoJSON berhasil disimpan!\n\nFile ID: ${result.fileId}\nVersion: ${result.versionNumber}\n\n${result.message}`);
+			} else {
+				throw new Error('Failed to save GeoJSON');
+			}
+
+		} catch (error) {
+			console.error('Error saving GeoJSON:', error);
+			alert('Gagal menyimpan GeoJSON. Silakan coba lagi.');
+		} finally {
+			isSaving = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -2123,9 +2206,15 @@
 				</a>
 				<a
 					href="/perubahan"
-					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
 				>
 					Perubahan
+				</a>
+				<a
+					href="/manage-files"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Manage Files
 				</a>
 			</div>
 		</nav>
@@ -2387,6 +2476,43 @@
 						>
 							View All Anomalies
 						</button>
+
+						<!-- Save Button -->
+						{#if uploadedGeoJSON}
+							<button
+								on:click={saveGeoJSON}
+								disabled={isSaving}
+								class="mt-2 w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{#if isSaving}
+									<span class="flex items-center justify-center">
+										<svg
+											class="mr-2 -ml-1 h-4 w-4 animate-spin text-white"
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+										>
+											<circle
+												class="opacity-25"
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												stroke-width="4"
+											></circle>
+											<path
+												class="opacity-75"
+												fill="currentColor"
+												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+											></path>
+										</svg>
+										Menyimpan...
+									</span>
+								{:else}
+									💾 Simpan GeoJSON
+								{/if}
+							</button>
+						{/if}
 					</div>
 
 					<!-- Additional Info -->

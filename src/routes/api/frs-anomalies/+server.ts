@@ -3,10 +3,10 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { sipw, frs } from '$lib/server/db/schema';
-import { eq, and, not, sql } from 'drizzle-orm';
+import { eq, and, not } from 'drizzle-orm';
 
-const sql = neon(env.DATABASE_URL || '');
-const db = drizzle(sql);
+const neonSql = neon(env.DATABASE_URL || '');
+const db = drizzle(neonSql);
 
 // FRS status type mapping
 const statusTypes: Record<number, string> = {

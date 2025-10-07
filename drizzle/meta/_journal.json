@@ -15,6 +15,20 @@
       "when": 1759803089704,
       "tag": "0001_illegal_blue_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1759807923726,
+      "tag": "0002_superb_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1759808961308,
+      "tag": "0003_nappy_quasar",
+      "breakpoints": true
     }
   ]
 }

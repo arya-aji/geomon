@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, varchar, timestamp, boolean, jsonb, text } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('user', {
 	id: serial('id').primaryKey(),
@@ -56,4 +56,44 @@ export const frs = pgTable('frs', {
 	status: integer('status'),
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Processed GeoJSON files table - Main file tracking
+export const processedGeojson = pgTable('processed_geojson', {
+	id: serial('id').primaryKey(),
+	userId: varchar('user_id', { length: 255 }),
+	originalFilename: varchar('original_filename', { length: 255 }),
+	districtCode: varchar('district_code', { length: 50 }),
+	districtName: varchar('district_name', { length: 200 }),
+	kecamatanName: varchar('kecamatan_name', { length: 200 }),
+	kabupatenName: varchar('kabupaten_name', { length: 200 }),
+	currentVersionId: integer('current_version_id'),
+	isActive: boolean('is_active').default(true),
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Version history table - Stores each version of the GeoJSON
+export const geojsonVersions = pgTable('geojson_versions', {
+	id: serial('id').primaryKey(),
+	fileId: integer('file_id').references(() => processedGeojson.id),
+	versionNumber: integer('version_number'),
+	geojsonData: jsonb('geojson_data'),
+	anomalySummary: jsonb('anomaly_summary'),
+	processingMetadata: jsonb('processing_metadata'),
+	createdBy: varchar('created_by', { length: 255 }),
+	changeNotes: text('change_notes'),
+	createdAt: timestamp('created_at').defaultNow()
+});
+
+// Revision tracking table - Tracks changes between versions
+export const geojsonRevisions = pgTable('geojson_revisions', {
+	id: serial('id').primaryKey(),
+	fileId: integer('file_id').references(() => processedGeojson.id),
+	fromVersionId: integer('from_version_id').references(() => geojsonVersions.id),
+	toVersionId: integer('to_version_id').references(() => geojsonVersions.id),
+	revisionType: varchar('revision_type', { length: 50 }), // 'correction', 'update', 'new_data'
+	changesSummary: jsonb('changes_summary'), // What changed between versions
+	createdBy: varchar('created_by', { length: 255 }),
+	createdAt: timestamp('created_at').defaultNow()
 });
