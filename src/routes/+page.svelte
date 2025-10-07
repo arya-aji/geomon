@@ -379,6 +379,9 @@
 
 				// Rule 8: Compare GeoJSON with SIPW table data
 				checkSIPWDataConsistency(geoJson);
+
+				// Rule 9: Check for FRS-related anomalies
+				await checkFRSAnomalies(geoJson);
 			}
 
 			// Add GeoJSON to map
@@ -1949,6 +1952,116 @@
 		}
 	}
 
+	async function checkFRSAnomalies(geoJson: any) {
+		try {
+			console.log('Checking FRS-related anomalies...');
+
+			// Get all idsubsls from uploaded GeoJSON
+			const features = geoJson.features || [];
+			const geoJsonIdsls = features
+				.filter((feature: any) => feature.properties && feature.properties.idsubsls)
+				.map((feature: any) => feature.properties.idsubsls);
+
+			console.log(`Sending ${geoJsonIdsls.length} GeoJSON idsubsls to FRS API`);
+
+			// Fetch FRS anomalies from API using POST with GeoJSON idsubsls
+			const response = await fetch('/api/frs-anomalies', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ geoJsonIdsls })
+			});
+
+			if (!response.ok) {
+				console.error('Failed to fetch FRS anomalies:', response.statusText);
+				return;
+			}
+
+			const frsAnomalies = await response.json();
+			console.log(`Found ${frsAnomalies.length} FRS-related anomalies for uploaded areas`);
+
+			// Get all features from uploaded GeoJSON for coordinate matching
+			const featuresById = new Map();
+			features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.idsubsls) {
+					featuresById.set(feature.properties.idsubsls, feature);
+				}
+			});
+
+			// Add FRS anomalies to the anomaly list
+			frsAnomalies.forEach((frsAnomaly: any) => {
+				// For anomalies that have corresponding GeoJSON features, add coordinates
+				if (frsAnomaly.idsubsls && featuresById.has(frsAnomaly.idsubsls)) {
+					const feature = featuresById.get(frsAnomaly.idsubsls);
+					const coordinates = extractCoordinates(feature.geometry);
+
+					const anomalyData = {
+						idsubsls: frsAnomaly.idsubsls,
+						title: frsAnomaly.title,
+						severity: frsAnomaly.severity.charAt(0).toUpperCase() + frsAnomaly.severity.slice(1), // Capitalize first letter
+						description: frsAnomaly.description,
+						coordinates: coordinates,
+						detectedAt: new Date().toLocaleString(),
+						properties: {
+							anomalyType: 'frs_change',
+							frsData: frsAnomaly.frsData,
+							sipwData: frsAnomaly.sipwData,
+							geojsonFeature: feature,
+							nmsls: frsAnomaly.nmsls || feature.properties?.nmsls,
+							idsls: frsAnomaly.idsls,
+							kdprov: frsAnomaly.kdprov,
+							kdkab: frsAnomaly.kdkab,
+							nmkab: frsAnomaly.nmkab,
+							statusText: frsAnomaly.frsData?.statusText,
+							changeType: frsAnomaly.frsData?.statusText
+						}
+					};
+
+					addAnomaly(anomalyData);
+				} else if (frsAnomaly.type === 'missing_sls_after_merge' ||
+					   frsAnomaly.type === 'idsls_mismatch_after' ||
+					   frsAnomaly.type === 'idsls_mismatch_before') {
+					// For missing SLS or ID mismatches, create anomaly without coordinates
+					const anomalyData = {
+						idsubsls: frsAnomaly.type === 'idsls_mismatch_before' ? frsAnomaly.idsubsls : `${frsAnomaly.type}-${frsAnomaly.idsls}`,
+						title: frsAnomaly.title,
+						severity: frsAnomaly.severity.charAt(0).toUpperCase() + frsAnomaly.severity.slice(1),
+						description: frsAnomaly.description,
+						coordinates: frsAnomaly.type === 'idsls_mismatch_before' ? 'Available - Old SLS still exists' : 'No coordinates - Missing SLS',
+						detectedAt: new Date().toLocaleString(),
+						properties: {
+							anomalyType: frsAnomaly.type,
+							frsData: frsAnomaly.frsData,
+							sipwData: frsAnomaly.sipwData,
+							nmsls: frsAnomaly.nmsls,
+							idsls: frsAnomaly.idsls,
+							statusText: frsAnomaly.frsData?.statusText,
+							changeType: frsAnomaly.frsData?.statusText,
+							actionRequired: frsAnomaly.type === 'idsls_mismatch_after' ? 'Update GeoJSON with new SLS' :
+										   frsAnomaly.type === 'idsls_mismatch_before' ? 'Remove old SLS from GeoJSON' :
+										   'Add new SLS data to system'
+						}
+					};
+
+					addAnomaly(anomalyData);
+				}
+			});
+
+			console.log(`FRS anomaly check completed. Added ${frsAnomalies.length} FRS-related anomalies`);
+		} catch (error) {
+			console.error('Error checking FRS anomalies:', error);
+			addAnomaly({
+				idsubsls: 'FRS_CHECK_ERROR',
+				title: 'FRS Validation Error',
+				severity: 'Medium',
+				description: 'Error occurred while checking FRS-related anomalies',
+				coordinates: 'Unknown',
+				detectedAt: new Date().toLocaleString()
+			});
+		}
+	}
+
 	function triggerFileUpload() {
 		fileInput?.click();
 	}
@@ -2198,6 +2311,52 @@
 												>
 													ID: {anomaly.idsubsls}
 												</p>
+												{#if anomaly.properties?.anomalyType === 'frs_change' && anomaly.properties?.changeType}
+													<p
+														class="mt-1 text-xs font-medium text-purple-600"
+													>
+														🔄 {anomaly.properties.changeType}
+													</p>
+													{#if anomaly.properties?.frsData?.idsls_after}
+														<p
+															class="mt-1 text-xs text-gray-600"
+														>
+															➡️ {anomaly.properties.frsData.idsls_before} → {anomaly.properties.frsData.idsls_after}
+														</p>
+													{/if}
+												{:else if anomaly.properties?.anomalyType === 'missing_sls_after_merge'}
+													<p
+														class="mt-1 text-xs font-medium text-orange-600"
+													>
+														⚠️ SLS Baru Belum Ada di SIPW
+													</p>
+												{:else if anomaly.properties?.anomalyType === 'idsls_mismatch_after'}
+													<p
+														class="mt-1 text-xs font-medium text-red-600"
+													>
+														🆕 ID SLS Baru Tidak Ada di GeoJSON
+													</p>
+													{#if anomaly.properties?.frsData?.idsls_after}
+														<p
+															class="mt-1 text-xs text-gray-600"
+														>
+															❌ {anomaly.properties.frsData.idsls_after} hilang dari GeoJSON
+														</p>
+													{/if}
+												{:else if anomaly.properties?.anomalyType === 'idsls_mismatch_before'}
+													<p
+														class="mt-1 text-xs font-medium text-yellow-600"
+													>
+														🗑️ ID SLS Lama Masih Ada
+													</p>
+													{#if anomaly.properties?.frsData?.idsls_before}
+														<p
+															class="mt-1 text-xs text-gray-600"
+														>
+															⚠️ {anomaly.properties.frsData.idsls_before} harus dihapus
+														</p>
+													{/if}
+												{/if}
 												<p
 													class="mt-1 text-xs"
 													class:text-red-600={anomaly.severity === 'High'}
@@ -2247,6 +2406,16 @@
 								<li>• Switch between Street/Satellite</li>
 								<li>• Zoom in/out with scroll</li>
 								<li>• Pan by dragging</li>
+							</ul>
+						</div>
+
+						<div class="rounded-md border border-purple-200 bg-purple-50 p-4">
+							<h3 class="mb-2 text-sm font-medium text-purple-900">FRS Changes</h3>
+							<ul class="space-y-1 text-xs text-purple-700">
+								<li>• 🔄 FRS changes detected automatically</li>
+								<li>• Shows required actions for SLS changes</li>
+								<li>• Highlights missing SLS after merges</li>
+								<li>• Links to Perubahan page for details</li>
 							</ul>
 						</div>
 					</div>

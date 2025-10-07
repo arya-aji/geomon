@@ -17,6 +17,7 @@
 	let isLoading = $state(true); // Start with loading state
 	let error = $state<string | null>(null);
 	let selectedStatus = $state<number | null>(null); // Filter by status
+	let searchQuery = $state(''); // Search query
 
 	// Status type mapping
 	const statusTypes: Record<number, string> = {
@@ -71,10 +72,31 @@
 
 	// Helper function to get filtered and paginated data
 	function getPaginatedData() {
-		// Apply status filter
+		// Apply filters
 		let filteredData = frsData;
+
+		// Apply status filter
 		if (selectedStatus !== null) {
-			filteredData = frsData.filter(item => item.status === selectedStatus);
+			filteredData = filteredData.filter(item => item.status === selectedStatus);
+		}
+
+		// Apply search filter
+		if (searchQuery.trim() !== '') {
+			const query = searchQuery.toLowerCase().trim();
+			filteredData = filteredData.filter(item => {
+				return (
+					// Search in ID SLS before
+					(item.idsls_before && item.idsls_before.toLowerCase().includes(query)) ||
+					// Search in ID SLS after
+					(item.idsls_after && item.idsls_after.toLowerCase().includes(query)) ||
+					// Search in nama SLS before
+					(item.nama_sls_before && item.nama_sls_before.toLowerCase().includes(query)) ||
+					// Search in nama SLS after
+					(item.nama_sls_after && item.nama_sls_after.toLowerCase().includes(query)) ||
+					// Search in ketua SLS
+					(item.ketua_sls && item.ketua_sls.toLowerCase().includes(query))
+				);
+			});
 		}
 
 		// Apply pagination
@@ -85,10 +107,28 @@
 
 	// Get total filtered data count for pagination
 	function getFilteredDataCount() {
-		if (selectedStatus === null) {
-			return frsData.length;
+		let filteredData = frsData;
+
+		// Apply status filter
+		if (selectedStatus !== null) {
+			filteredData = filteredData.filter(item => item.status === selectedStatus);
 		}
-		return frsData.filter(item => item.status === selectedStatus).length;
+
+		// Apply search filter
+		if (searchQuery.trim() !== '') {
+			const query = searchQuery.toLowerCase().trim();
+			filteredData = filteredData.filter(item => {
+				return (
+					(item.idsls_before && item.idsls_before.toLowerCase().includes(query)) ||
+					(item.idsls_after && item.idsls_after.toLowerCase().includes(query)) ||
+					(item.nama_sls_before && item.nama_sls_before.toLowerCase().includes(query)) ||
+					(item.nama_sls_after && item.nama_sls_after.toLowerCase().includes(query)) ||
+					(item.ketua_sls && item.ketua_sls.toLowerCase().includes(query))
+				);
+			});
+		}
+
+		return filteredData.length;
 	}
 
 	// Reset to page 1 when filter changes
@@ -216,6 +256,46 @@
 				</div>
 			</div>
 
+			<!-- Search Bar -->
+			<div class="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+				<div class="flex flex-col sm:flex-row sm:items-center gap-4">
+					<div class="flex-1">
+						<label for="search-input" class="block text-sm font-medium text-gray-700 mb-2">
+							Cari Perubahan SLS:
+						</label>
+						<div class="relative">
+							<input
+								type="text"
+								id="search-input"
+								bind:value={searchQuery}
+								placeholder="Cari berdasarkan ID SLS, Nama SLS, atau Ketua SLS..."
+								class="w-full px-4 py-2 pr-10 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+							/>
+							<div class="absolute inset-y-0 right-0 flex items-center pr-3">
+								<svg
+									class="h-4 w-4 text-gray-400"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+									></path>
+								</svg>
+							</div>
+						</div>
+						{#if searchQuery.trim() !== ''}
+							<p class="mt-2 text-xs text-gray-500">
+								Menampilkan hasil untuk: <span class="font-medium">{searchQuery}</span>
+							</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+
 			<!-- Status Filter -->
 			<div class="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
 				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -271,7 +351,9 @@
 				<div class="mb-4 flex items-center justify-between">
 					<p class="text-sm text-gray-600">
 						Menampilkan {getPaginatedData().length} dari {getFilteredDataCount()} perubahan SLS
-						{selectedStatus !== null ? `(Filter: ${statusTypes[selectedStatus]})` : ''}
+						{selectedStatus !== null || searchQuery.trim() !== '' ?
+							`(Filter: ${selectedStatus !== null ? statusTypes[selectedStatus] : ''}${searchQuery.trim() !== '' ? (selectedStatus !== null ? ', ' : '') + `Pencarian: "${searchQuery}"` : ''})`
+							: ''}
 					</p>
 				</div>
 
