@@ -3,12 +3,41 @@
 
 	let files: any[] = [];
 	let groupedFiles: any = {};
+	let operatorGroups: any = {};
 	let isLoading = true;
 	let error: string | null = null;
 	let selectedFile: any = null;
 	let showVersions = false;
 	let versions: any[] = [];
 	let revisions: any[] = [];
+	let groupByOperator = false; // Toggle between geographical and operator grouping
+
+	// Operator allocation data
+	const operatorAllocations = [
+		{ "Nama": "agustina rahmani ulva", "Alokasi 1": "Senen", "Alokasi 2": "Gelora" },
+		{ "Nama": "Ahmad Naufal", "Alokasi 1": "Kartini", "Alokasi 2": "Cempaka Putih Timur" },
+		{ "Nama": "Ajrina Shafa Ananda", "Alokasi 1": "Kebon Sirih", "Alokasi 2": "Cideng" },
+		{ "Nama": "Amara Husna", "Alokasi 1": "Kwitang", "Alokasi 2": "Cikini" },
+		{ "Nama": "Auliatunnisa", "Alokasi 1": "Bungur", "Alokasi 2": "Duri Pulo" },
+		{ "Nama": "Ayu susetyaning", "Alokasi 1": "Galur", "Alokasi 2": "Kebon Melati" },
+		{ "Nama": "Bayu Adi Nugroho", "Alokasi 1": "Utan Panjang", "Alokasi 2": "Petojo Utara" },
+		{ "Nama": "febry ramadhianti", "Alokasi 1": "Kebon Kosong", "Alokasi 2": "Kampung Bali" },
+		{ "Nama": "Guntur Gunawan", "Alokasi 1": "Kebon Kelapa", "Alokasi 2": "Sumur Batu" },
+		{ "Nama": "Khadija Izzati", "Alokasi 1": "Kemayoran", "Alokasi 2": "Petojo Selatan" },
+		{ "Nama": "Luli huriah", "Alokasi 1": "Petamburan", "Alokasi 2": "Gondangdia" },
+		{ "Nama": "Lusia Puji Astuti", "Alokasi 1": "Gunung Sahari Selatan", "Alokasi 2": "Karet Tengsin" },
+		{ "Nama": "Meiriana Hudanti Perdhani", "Alokasi 1": "Serdang", "Alokasi 2": "Pegangsaan" },
+		{ "Nama": "Muhammad Fadhil Amin", "Alokasi 1": "Rawasari", "Alokasi 2": "Bendungan Hilir" },
+		{ "Nama": "Novaldi Endrawan", "Alokasi 1": "Paseban", "Alokasi 2": "Gambir" },
+		{ "Nama": "Nurhaliza Laila Arman", "Alokasi 1": "Cempaka Putih Barat", "Alokasi 2": "Gunung Sahari Utara" },
+		{ "Nama": "Revina Ananda Hardiyanto", "Alokasi 1": "Kampung Rawa", "Alokasi 2": "Karang Anyar" },
+		{ "Nama": "Shintia Nikita Zen", "Alokasi 1": "Cempaka Baru", "Alokasi 2": "Kebon Kacang" },
+		{ "Nama": "Siti Fitriyani", "Alokasi 1": "Johar Baru", "Alokasi 2": "Kenari" },
+		{ "Nama": "Siti Humaira", "Alokasi 1": "Harapan Mulya", "Alokasi 2": "Kramat" },
+		{ "Nama": "Siti Nurlenia", "Alokasi 1": "Tanah Tinggi", "Alokasi 2": "" },
+		{ "Nama": "Wafa Nazifah", "Alokasi 1": "Pasar Baru", "Alokasi 2": "Menteng" },
+		{ "Nama": "Kurnia Hidayati", "Alokasi 1": "Mangga Dua Selatan", "Alokasi 2": "" }
+	];
 
 	function groupFilesByKecamatanAndDesa(filesList: any[]) {
 		const grouped: any = {};
@@ -31,6 +60,83 @@
 		return grouped;
 	}
 
+	function groupFilesByOperator(filesList: any[]) {
+		const grouped: any = {};
+
+		// Initialize operator groups with allocations
+		operatorAllocations.forEach(operator => {
+			const operatorName = operator.Nama;
+			grouped[operatorName] = {
+				allocations: [],
+				files: []
+			};
+
+			// Add allocation areas
+			if (operator["Alokasi 1"]) {
+				grouped[operatorName].allocations.push(operator["Alokasi 1"]);
+			}
+			if (operator["Alokasi 2"]) {
+				grouped[operatorName].allocations.push(operator["Alokasi 2"]);
+			}
+		});
+
+		// Match files to operators based on districtName (case insensitive)
+		filesList.forEach(file => {
+			const districtName = file.districtName; // Use districtName since desaaName is null
+
+			// Find which operator this file belongs to
+			operatorAllocations.forEach(operator => {
+				const operatorName = operator.Nama;
+				const allocations = [operator["Alokasi 1"], operator["Alokasi 2"]].filter(Boolean);
+
+				// Check if file's district name matches any of operator's allocations (case insensitive)
+				const match = allocations.some(allocation => {
+					if (!allocation || !districtName) return false;
+					return allocation.toLowerCase() === districtName.toLowerCase();
+				});
+
+				if (match) {
+					grouped[operatorName].files.push(file);
+				}
+			});
+		});
+
+		// Remove duplicates by district name - keep the most recent file (highest version or latest update)
+		Object.keys(grouped).forEach(operatorName => {
+			const filesByDistrict: { [key: string]: any[] } = {};
+
+			// Group files by district name
+			grouped[operatorName].files.forEach(file => {
+				const districtKey = file.districtName;
+				if (!filesByDistrict[districtKey]) {
+					filesByDistrict[districtKey] = [];
+				}
+				filesByDistrict[districtKey].push(file);
+			});
+
+			// For each district, keep only the most recent file
+			const uniqueFiles: any[] = [];
+			Object.keys(filesByDistrict).forEach(district => {
+				const districtFiles = filesByDistrict[district];
+				// Sort by version number first, then by update date, and take the first (most recent)
+				const mostRecentFile = districtFiles.sort((a, b) => {
+					// First sort by currentVersionNumber (higher is better)
+					if (b.currentVersionNumber !== a.currentVersionNumber) {
+						return b.currentVersionNumber - a.currentVersionNumber;
+					}
+					// If versions are equal, sort by update date (more recent is better)
+					return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+				})[0];
+				uniqueFiles.push(mostRecentFile);
+			});
+
+			// Replace the files array with deduplicated files
+			grouped[operatorName].files = uniqueFiles;
+		});
+
+		return grouped;
+	}
+
 	async function fetchFiles() {
 		try {
 			const response = await fetch('/api/save-geojson?userId=anonymous');
@@ -39,6 +145,7 @@
 			if (result.success) {
 				files = result.files;
 				groupedFiles = groupFilesByKecamatanAndDesa(files);
+				operatorGroups = groupFilesByOperator(files);
 			} else {
 				throw new Error('Failed to fetch files');
 			}
@@ -83,6 +190,54 @@
 				return 'bg-blue-100 text-blue-800';
 			default:
 				return 'bg-gray-100 text-gray-800';
+		}
+	}
+
+	function generateOperatorSummary() {
+		const summaryLines: string[] = [];
+
+		// Sort operators by name alphabetically for consistent output
+		const sortedOperators = Object.keys(operatorGroups).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+		sortedOperators.forEach(operatorName => {
+			const operatorData = operatorGroups[operatorName];
+			const totalAllocations = operatorData.allocations.length;
+			const completedFiles = operatorData.files.length;
+			const percentage = totalAllocations > 0 ? Math.round((completedFiles / totalAllocations) * 100) : 0;
+
+			// Format: "Nama Operator : X dari Y (Z%)"
+			summaryLines.push(`${operatorName} : ${completedFiles} dari ${totalAllocations} (${percentage}%)`);
+		});
+
+		// Add overall statistics at the end
+		const totalAllocations = Object.values(operatorGroups).reduce((sum: number, op: any) => sum + op.allocations.length, 0);
+		const totalCompleted = Object.values(operatorGroups).reduce((sum: number, op: any) => sum + op.files.length, 0);
+		const overallPercentage = totalAllocations > 0 ? Math.round((totalCompleted / totalAllocations) * 100) : 0;
+
+		summaryLines.push(''); // Empty line
+		summaryLines.push(`Total: ${totalCompleted} dari ${totalAllocations} (${overallPercentage}%)`);
+
+		return summaryLines.join('\n');
+	}
+
+	async function copyOperatorSummary() {
+		try {
+			const summary = generateOperatorSummary();
+			await navigator.clipboard.writeText(summary);
+
+			// Show success feedback
+			alert('Operator summary copied to clipboard!');
+		} catch (err) {
+			console.error('Failed to copy summary:', err);
+			// Fallback for browsers that don't support clipboard API
+			const summary = generateOperatorSummary();
+			const textArea = document.createElement('textarea');
+			textArea.value = summary;
+			document.body.appendChild(textArea);
+			textArea.select();
+			document.execCommand('copy');
+			document.body.removeChild(textArea);
+			alert('Operator summary copied to clipboard!');
 		}
 	}
 
@@ -141,7 +296,55 @@
 	<!-- Main Content -->
 	<div class="mx-auto max-w-7xl">
 		<div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-			<h2 class="mb-6 text-2xl font-semibold text-gray-900">Manage Saved GeoJSON Files</h2>
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-2xl font-semibold text-gray-900">Manage Saved GeoJSON Files</h2>
+
+				<div class="flex items-center space-x-4">
+					<!-- Copy Summary Button (only show in operator view) -->
+					{#if groupByOperator}
+						<button
+							on:click={copyOperatorSummary}
+							class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+							title="Copy operator summary to clipboard"
+						>
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+							</svg>
+							Copy Summary
+						</button>
+					{/if}
+
+					<!-- Toggle for grouping mode -->
+					<div class="flex items-center space-x-3">
+						<span class="text-sm font-medium text-gray-700">Group by:</span>
+						<div class="relative inline-flex items-center rounded-lg bg-gray-100 p-1">
+							<button
+								on:click={() => (groupByOperator = false)}
+								class="relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors {groupByOperator
+									? 'text-gray-600 hover:text-gray-800'
+									: 'bg-white text-gray-900 shadow-sm'}"
+							>
+								<svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+								</svg>
+								Area
+							</button>
+							<button
+								on:click={() => (groupByOperator = true)}
+								class="relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors {groupByOperator
+									? 'bg-white text-gray-900 shadow-sm'
+									: 'text-gray-600 hover:text-gray-800'}"
+							>
+								<svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+								</svg>
+								Operator
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			{#if isLoading}
 				<div class="py-12 text-center">
@@ -180,63 +383,152 @@
 					<p class="mt-1 text-xs text-gray-500">Upload and save GeoJSON files to see them here</p>
 				</div>
 			{:else}
-				<div class="space-y-6">
-					{#each Object.entries(groupedFiles) as [kecamatanName, desaGroups] (kecamatanName)}
-						<div class="rounded-lg border border-gray-200 bg-white">
-							<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-								<h3 class="text-lg font-semibold text-gray-900">
-									<svg class="inline-block h-5 w-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-									</svg>
-									{kecamatanName}
-								</h3>
-							</div>
-							<div class="divide-y divide-gray-200">
-								{#each Object.entries(desaGroups as any) as [desaName, desaFiles] (desaName)}
-									<div class="p-4">
-										<h4 class="text-sm font-medium text-gray-700 mb-3">
-											<svg class="inline-block h-4 w-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+				{#if groupByOperator}
+					<!-- Operator View -->
+					<div class="space-y-6">
+						{#each Object.entries(operatorGroups) as [operatorName, operatorData] (operatorName)}
+							<div class="rounded-lg border border-gray-200 bg-white">
+								<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+									<div class="flex items-center justify-between">
+										<h3 class="text-lg font-semibold text-gray-900">
+											<svg class="inline-block h-5 w-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
 											</svg>
-											{desaName}
-										</h4>
-										<div class="space-y-2 ml-5">
-											{#each desaFiles as file (file.id)}
-												<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
-													<div class="flex items-center justify-between">
-														<div class="flex-1">
-															<div class="flex items-center space-x-3">
-																<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-																	<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-																	</svg>
-																</div>
-																<div>
-																	<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
-																	<p class="text-xs text-gray-500">
-																		File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																		• Updated: {formatDate(file.updatedAt)}
-																	</p>
-																</div>
-															</div>
-														</div>
-														<button
-															on:click={() => fetchVersions(file.id)}
-															class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-														>
-															View Versions
-														</button>
-													</div>
-												</div>
+											{operatorName}
+										</h3>
+										<div class="flex items-center space-x-2">
+											<span class="text-sm text-gray-600">
+												{operatorData.files.length} file{operatorData.files.length !== 1 ? 's' : ''} • {operatorData.allocations.length} area{operatorData.allocations.length !== 1 ? 's' : ''}
+											</span>
+										</div>
+									</div>
+								</div>
+								<div class="p-4">
+									<!-- Assigned Areas -->
+									<div class="mb-4">
+										<h4 class="text-sm font-medium text-gray-700 mb-2">Assigned Areas:</h4>
+										<div class="flex flex-wrap gap-2">
+											{#each operatorData.allocations as allocation}
+												<span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+													<svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+													</svg>
+													{allocation}
+												</span>
 											{/each}
 										</div>
 									</div>
-								{/each}
+
+									<!-- Files -->
+									<div>
+										<h4 class="text-sm font-medium text-gray-700 mb-3">Files:</h4>
+										{#if operatorData.files.length === 0}
+											<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
+												<div class="mx-auto h-8 w-8 text-gray-400">
+													<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+													</svg>
+												</div>
+												<p class="mt-2 text-xs text-gray-600">No GeoJSON files uploaded for assigned areas</p>
+											</div>
+										{:else}
+											<div class="space-y-2">
+												{#each operatorData.files as file (file.id)}
+													<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+														<div class="flex items-center justify-between">
+															<div class="flex-1">
+																<div class="flex items-center space-x-3">
+																	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+																		<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+																		</svg>
+																	</div>
+																	<div>
+																		<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
+																		<p class="text-xs text-gray-500">
+																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																			• Updated: {formatDate(file.updatedAt)}
+																		</p>
+																	</div>
+																</div>
+															</div>
+															<button
+																on:click={() => fetchVersions(file.id)}
+																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+															>
+																View Versions
+															</button>
+														</div>
+													</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								</div>
 							</div>
-						</div>
-					{/each}
-				</div>
+						{/each}
+					</div>
+				{:else}
+					<!-- Geographical View -->
+					<div class="space-y-6">
+						{#each Object.entries(groupedFiles) as [kecamatanName, desaGroups] (kecamatanName)}
+							<div class="rounded-lg border border-gray-200 bg-white">
+								<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+									<h3 class="text-lg font-semibold text-gray-900">
+										<svg class="inline-block h-5 w-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+										</svg>
+										{kecamatanName}
+									</h3>
+								</div>
+								<div class="divide-y divide-gray-200">
+									{#each Object.entries(desaGroups as any) as [desaName, desaFiles] (desaName)}
+										<div class="p-4">
+											<h4 class="text-sm font-medium text-gray-700 mb-3">
+												<svg class="inline-block h-4 w-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+												</svg>
+												{desaName}
+											</h4>
+											<div class="space-y-2 ml-5">
+												{#each desaFiles as file (file.id)}
+													<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+														<div class="flex items-center justify-between">
+															<div class="flex-1">
+																<div class="flex items-center space-x-3">
+																	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+																		<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+																		</svg>
+																	</div>
+																	<div>
+																		<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
+																		<p class="text-xs text-gray-500">
+																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																			• Updated: {formatDate(file.updatedAt)}
+																		</p>
+																	</div>
+																</div>
+															</div>
+															<button
+																on:click={() => fetchVersions(file.id)}
+																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+															>
+																View Versions
+															</button>
+														</div>
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			{/if}
 
 			<!-- Version History Modal -->
