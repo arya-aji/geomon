@@ -22,6 +22,7 @@
 	let districtName = '';
 	let kecamatanName = '';
 	let kabupatenName = '';
+	let desaName = '';
 	let savedFileId: number | null = null;
 
 	// Function to add anomaly with duplicate check based on idsubsls
@@ -345,6 +346,7 @@
 					if (firstFeature.properties) {
 						districtCode = firstFeature.properties.kddesa || firstFeature.properties.nmdesa || 'unknown';
 						districtName = firstFeature.properties.nmdesa || 'unknown';
+						desaName = firstFeature.properties.nmdesa || 'unknown';
 						kecamatanName = firstFeature.properties.nmkec || 'unknown';
 						kabupatenName = firstFeature.properties.nmkab || 'unknown';
 					}
@@ -2148,6 +2150,7 @@
 					districtName: districtName,
 					kecamatanName: kecamatanName,
 					kabupatenName: kabupatenName,
+					desaaName: desaName,
 					userId: 'anonymous', // You can get this from auth system later
 					changeNotes: savedFileId ? 'Updated after review' : 'Initial upload',
 					revisionType: savedFileId ? 'correction' : 'new_data',

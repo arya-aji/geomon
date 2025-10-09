@@ -1,0 +1,1 @@
+ALTER TABLE "processed_geojson" ADD COLUMN "desa_name" varchar(200);

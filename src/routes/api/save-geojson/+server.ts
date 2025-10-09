@@ -17,6 +17,7 @@ interface SaveGeojsonRequest {
 	districtName?: string;
 	kecamatanName?: string;
 	kabupatenName?: string;
+	desaaName?: string;
 	userId?: string;
 	changeNotes?: string;
 	revisionType?: 'correction' | 'update' | 'new_data';
@@ -98,6 +99,7 @@ export async function POST({ request }: { request: Request }) {
 					districtName: body.districtName || 'unknown',
 					kecamatanName: body.kecamatanName || 'unknown',
 					kabupatenName: body.kabupatenName || 'unknown',
+					desaaName: body.desaaName || 'unknown',
 					currentVersionId: null, // Will be updated after creating version
 					isActive: true,
 					createdAt: new Date(),
@@ -202,6 +204,7 @@ export async function GET({ url }: { url: URL }) {
 				districtName: processedGeojson.districtName,
 				kecamatanName: processedGeojson.kecamatanName,
 				kabupatenName: processedGeojson.kabupatenName,
+				desaaName: processedGeojson.desaaName,
 				isActive: processedGeojson.isActive,
 				createdAt: processedGeojson.createdAt,
 				updatedAt: processedGeojson.updatedAt,

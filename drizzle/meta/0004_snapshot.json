@@ -1,0 +1,616 @@
+{
+  "id": "29dd04ab-dd50-44a3-8a9b-f737442f6641",
+  "prevId": "3b6ddc21-7ed6-4e40-99a4-fff9ecf25507",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.frs": {
+      "name": "frs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idsls_before": {
+          "name": "idsls_before",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls_before": {
+          "name": "nama_sls_before",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idsls_after": {
+          "name": "idsls_after",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls_after": {
+          "name": "nama_sls_after",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ketua_sls": {
+          "name": "ketua_sls",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.geojson_revisions": {
+      "name": "geojson_revisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "from_version_id": {
+          "name": "from_version_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_version_id": {
+          "name": "to_version_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision_type": {
+          "name": "revision_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changes_summary": {
+          "name": "changes_summary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "geojson_revisions_file_id_processed_geojson_id_fk": {
+          "name": "geojson_revisions_file_id_processed_geojson_id_fk",
+          "tableFrom": "geojson_revisions",
+          "tableTo": "processed_geojson",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "geojson_revisions_from_version_id_geojson_versions_id_fk": {
+          "name": "geojson_revisions_from_version_id_geojson_versions_id_fk",
+          "tableFrom": "geojson_revisions",
+          "tableTo": "geojson_versions",
+          "columnsFrom": [
+            "from_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "geojson_revisions_to_version_id_geojson_versions_id_fk": {
+          "name": "geojson_revisions_to_version_id_geojson_versions_id_fk",
+          "tableFrom": "geojson_revisions",
+          "tableTo": "geojson_versions",
+          "columnsFrom": [
+            "to_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.geojson_versions": {
+      "name": "geojson_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version_number": {
+          "name": "version_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "geojson_data": {
+          "name": "geojson_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anomaly_summary": {
+          "name": "anomaly_summary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processing_metadata": {
+          "name": "processing_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_notes": {
+          "name": "change_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "geojson_versions_file_id_processed_geojson_id_fk": {
+          "name": "geojson_versions_file_id_processed_geojson_id_fk",
+          "tableFrom": "geojson_versions",
+          "tableTo": "processed_geojson",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.processed_geojson": {
+      "name": "processed_geojson",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "district_code": {
+          "name": "district_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "district_name": {
+          "name": "district_name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kecamatan_name": {
+          "name": "kecamatan_name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kabupaten_name": {
+          "name": "kabupaten_name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "desa_name": {
+          "name": "desa_name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_version_id": {
+          "name": "current_version_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sipw": {
+      "name": "sipw",
+      "schema": "",
+      "columns": {
+        "idsubsls": {
+          "name": "idsubsls",
+          "type": "varchar(20)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "idfrs": {
+          "name": "idfrs",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idsls": {
+          "name": "idsls",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdprov": {
+          "name": "kdprov",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdkab": {
+          "name": "kdkab",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdkec": {
+          "name": "kdkec",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kddesa": {
+          "name": "kddesa",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kdsls": {
+          "name": "kdsls",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "klas": {
+          "name": "klas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmprov": {
+          "name": "nmprov",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmkab": {
+          "name": "nmkab",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmkec": {
+          "name": "nmkec",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nmdesa": {
+          "name": "nmdesa",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_sls": {
+          "name": "nama_sls",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jenis_sls": {
+          "name": "jenis_sls",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ketua_sls": {
+          "name": "ketua_sls",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "semester_id": {
+          "name": "semester_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "semester": {
+          "name": "semester",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "j_subsls": {
+          "name": "j_subsls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_kk": {
+          "name": "muatan_kk",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "btt": {
+          "name": "btt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "btt_kosong": {
+          "name": "btt_kosong",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bku": {
+          "name": "bku",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bbtt_non_usaha": {
+          "name": "bbtt_non_usaha",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_usaha": {
+          "name": "muatan_usaha",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_total": {
+          "name": "muatan_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nama_wke": {
+          "name": "nama_wke",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jam_operasional": {
+          "name": "jam_operasional",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "jumlah_shift": {
+          "name": "jumlah_shift",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telepon_email": {
+          "name": "telepon_email",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "muatan_dominan": {
+          "name": "muatan_dominan",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flag_perubahan_sls": {
+          "name": "flag_perubahan_sls",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kd_subsls": {
+          "name": "kd_subsls",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "age": {
+          "name": "age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
