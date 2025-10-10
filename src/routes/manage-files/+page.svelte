@@ -3,6 +3,7 @@
 
 	let files: any[] = [];
 	let groupedFiles: any = {};
+	let allKelurahanGroups: any = {};
 	let operatorGroups: any = {};
 	let isLoading = true;
 	let error: string | null = null;
@@ -11,6 +12,7 @@
 	let versions: any[] = [];
 	let revisions: any[] = [];
 	let groupByOperator = false; // Toggle between geographical and operator grouping
+	let showAllKelurahan = false; // Toggle to show all kelurahan including those without files
 
 	// Operator allocation data
 	const operatorAllocations = [
@@ -38,6 +40,70 @@
 		{ "Nama": "Wafa Nazifah", "Alokasi 1": "Pasar Baru", "Alokasi 2": "Menteng" },
 		{ "Nama": "Kurnia Hidayati", "Alokasi 1": "Mangga Dua Selatan", "Alokasi 2": "" }
 	];
+
+	// Complete kelurahan structure for Jakarta Pusat
+	const allKelurahanStructure = {
+		"Jakarta Pusat": {
+			"Cempaka Putih": [
+				"Cempaka Putih Barat",
+				"Cempaka Putih Timur",
+				"Rawasari"
+			],
+			"Gambir": [
+				"Cideng",
+				"Duri Pulo",
+				"Gambir",
+				"Kebon Kelapa",
+				"Petojo Selatan",
+				"Petojo Utara"
+			],
+			"Johar Baru": [
+				"Galur",
+				"Johar Baru",
+				"Kampung Rawa",
+				"Tanah Tinggi"
+			],
+			"Kemayoran": [
+				"Cempaka Baru",
+				"Gunung Sahari Selatan",
+				"Harapan Mulia",
+				"Kebon Kosong",
+				"Kemayoran",
+				"Serdang",
+				"Sumur Batu",
+				"Utan Panjang"
+			],
+			"Menteng": [
+				"Cikini",
+				"Gondangdia",
+				"Kebon Sirih",
+				"Menteng",
+				"Pegangsaan"
+			],
+			"Sawah Besar": [
+				"Gunung Sahari Utara",
+				"Kartini",
+				"Mangga Dua Selatan",
+				"Pasar Baru"
+			],
+			"Senen": [
+				"Bungur",
+				"Kwitang",
+				"Kenari",
+				"Kramat",
+				"Paseban",
+				"Senen"
+			],
+			"Tanah Abang": [
+				"Bendungan Hilir",
+				"Gelora",
+				"Karet Tengsin",
+				"Kebon Melati",
+				"Kebon Kacang",
+				"Petamburan"
+			]
+		}
+	};
 
 	function groupFilesByKecamatanAndDesa(filesList: any[]) {
 		const grouped: any = {};
@@ -151,7 +217,7 @@
 			const filesByDistrict: { [key: string]: any[] } = {};
 
 			// Group files by district name
-			grouped[operatorName].files.forEach(file => {
+			grouped[operatorName].files.forEach((file: any) => {
 				let districtKey = file.districtName;
 
 				// If districtName is missing, try to extract from filename (same logic as above)
@@ -213,8 +279,8 @@
 
 			if (result.success) {
 				files = result.files;
-				console.log('Fetched files:', files);
 				groupedFiles = groupFilesByKecamatanAndDesa(files);
+				allKelurahanGroups = groupAllKelurahanWithFiles(files);
 				operatorGroups = groupFilesByOperator(files);
 			} else {
 				throw new Error('Failed to fetch files');
@@ -253,7 +319,7 @@
 
 			if (result.success && result.versions.length > 0) {
 				// Get the current version (first in array should be the latest)
-				const currentVersion = result.versions.find(v => v.id === result.file.currentVersionId) || result.versions[0];
+				const currentVersion = result.versions.find((v: any) => v.id === result.file.currentVersionId) || result.versions[0];
 
 				if (currentVersion && currentVersion.geojsonData) {
 					// Create a Blob with the GeoJSON data
@@ -356,6 +422,53 @@
 		return [latestFile];
 	}
 
+	function groupAllKelurahanWithFiles(filesList: any[]) {
+		const grouped: any = {};
+
+		// First, create the structure with all kelurahan from allKelurahanStructure
+		Object.entries(allKelurahanStructure["Jakarta Pusat"]).forEach(([kecamatanName, kelurahanList]) => {
+			grouped[kecamatanName] = {};
+
+			// Initialize all kelurahan as empty arrays
+			kelurahanList.forEach(kelurahanName => {
+				grouped[kecamatanName][kelurahanName] = [];
+			});
+		});
+
+		// Then, populate with actual files using fuzzy matching
+		filesList.forEach(file => {
+			const kecamatanName = file.kecamatanName;
+			const districtName = file.districtName;
+
+			// Try to find matching kecamatan using case-insensitive comparison
+			let matchedKecamatan = null;
+			for (const structureKecamatan of Object.keys(grouped)) {
+				if (kecamatanName && structureKecamatan.toLowerCase() === kecamatanName.toLowerCase().trim()) {
+					matchedKecamatan = structureKecamatan;
+					break;
+				}
+			}
+
+			// Try to find matching kelurahan using case-insensitive comparison
+			if (matchedKecamatan && districtName) {
+				let matchedKelurahan = null;
+				for (const structureKelurahan of Object.keys(grouped[matchedKecamatan])) {
+					if (structureKelurahan.toLowerCase() === districtName.toLowerCase().trim()) {
+						matchedKelurahan = structureKelurahan;
+						break;
+					}
+				}
+
+				// Add file to the correct location
+				if (matchedKelurahan) {
+					grouped[matchedKecamatan][matchedKelurahan].push(file);
+				}
+			}
+		});
+
+		return grouped;
+	}
+
 	function generateOperatorSummary() {
 		const summaryLines: string[] = [];
 
@@ -363,7 +476,7 @@
 		const sortedOperators = Object.keys(operatorGroups).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
 		sortedOperators.forEach(operatorName => {
-			const operatorData = operatorGroups[operatorName];
+			const operatorData = operatorGroups[operatorName] as any;
 			const totalAllocations = operatorData.allocations.length;
 			const completedFiles = operatorData.files.length;
 			const percentage = totalAllocations > 0 ? Math.round((completedFiles / totalAllocations) * 100) : 0;
@@ -506,6 +619,37 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- Show All Kelurahan Toggle (only show in Area view) -->
+					{#if !groupByOperator}
+						<div class="flex items-center space-x-3">
+							<span class="text-sm font-medium text-gray-700">Show:</span>
+							<div class="relative inline-flex items-center rounded-lg bg-gray-100 p-1">
+								<button
+									on:click={() => (showAllKelurahan = false)}
+									class="relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors {showAllKelurahan
+										? 'text-gray-600 hover:text-gray-800'
+										: 'bg-white text-gray-900 shadow-sm'}"
+								>
+									<svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+									</svg>
+									With Files Only
+								</button>
+								<button
+									on:click={() => (showAllKelurahan = true)}
+									class="relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors {showAllKelurahan
+										? 'bg-white text-gray-900 shadow-sm'
+										: 'text-gray-600 hover:text-gray-800'}"
+								>
+									<svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+									</svg>
+									All Kelurahan
+								</button>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -550,6 +694,7 @@
 					<!-- Operator View -->
 					<div class="space-y-6">
 						{#each Object.entries(operatorGroups) as [operatorName, operatorData] (operatorName)}
+							{@const operatorDataTyped = operatorData as any}
 							<div class="rounded-lg border border-gray-200 bg-white">
 								<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
 									<div class="flex items-center justify-between">
@@ -561,7 +706,7 @@
 										</h3>
 										<div class="flex items-center space-x-2">
 											<span class="text-sm text-gray-600">
-												{operatorData.files.length} file{operatorData.files.length !== 1 ? 's' : ''} • {operatorData.allocations.length} area{operatorData.allocations.length !== 1 ? 's' : ''}
+												{operatorDataTyped.files.length} file{operatorDataTyped.files.length !== 1 ? 's' : ''} • {operatorDataTyped.allocations.length} area{operatorDataTyped.allocations.length !== 1 ? 's' : ''}
 											</span>
 										</div>
 									</div>
@@ -571,7 +716,7 @@
 									<div class="mb-4">
 										<h4 class="text-sm font-medium text-gray-700 mb-2">Assigned Areas:</h4>
 										<div class="flex flex-wrap gap-2">
-											{#each operatorData.allocations as allocation}
+											{#each operatorDataTyped.allocations as allocation}
 												<span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
 													<svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
@@ -586,7 +731,7 @@
 									<!-- Files -->
 									<div>
 										<h4 class="text-sm font-medium text-gray-700 mb-3">Files:</h4>
-										{#if operatorData.files.length === 0}
+										{#if operatorDataTyped.files.length === 0}
 											<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
 												<div class="mx-auto h-8 w-8 text-gray-400">
 													<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,7 +742,7 @@
 											</div>
 										{:else}
 											<div class="space-y-2">
-												{#each operatorData.files as file (file.id)}
+												{#each operatorDataTyped.files as file (file.id)}
 													<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
 														<div class="flex items-center justify-between">
 															<div class="flex-1">
@@ -647,7 +792,8 @@
 				{:else}
 					<!-- Geographical View -->
 					<div class="space-y-6">
-						{#each Object.entries(groupedFiles) as [kecamatanName, desaGroups] (kecamatanName)}
+						{#each Object.entries(showAllKelurahan ? allKelurahanGroups : groupedFiles) as [kecamatanName, desaGroups] (kecamatanName)}
+							{@const desaGroupsTyped = desaGroups as { [key: string]: any[] }}
 							<div class="rounded-lg border border-gray-200 bg-white">
 								<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
 									<h3 class="text-lg font-semibold text-gray-900">
@@ -659,48 +805,76 @@
 									</h3>
 								</div>
 								<div class="p-4 space-y-2">
-									{#each Object.entries(desaGroups as any) as [desaName, desaFiles] (desaName)}
-										<!-- Get only the latest file for each district -->
-										{#each getLatestFileForDistrict(desaFiles) as file (file.id)}
-											<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+									{#each Object.entries(desaGroupsTyped) as [desaName, desaFiles] (desaName)}
+										{#if desaFiles.length > 0}
+											<!-- Kelurahan with files -->
+											{#each getLatestFileForDistrict(desaFiles) as file (file.id)}
+												<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+													<div class="flex items-center justify-between">
+														<div class="flex-1">
+															<div class="flex items-center space-x-3">
+																<div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+																	<svg class="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+																	</svg>
+																</div>
+																<div>
+																	<h5 class="text-sm font-medium text-gray-900">{desaName}</h5>
+																	<p class="text-xs text-gray-500">
+																		File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																		• Updated: {formatDate(file.updatedAt)}
+																	</p>
+																</div>
+															</div>
+														</div>
+														<div class="flex items-center space-x-2">
+															<button
+																on:click={() => downloadGeoJson(file.id, file.originalFilename)}
+																class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
+																title="Download GeoJSON file"
+															>
+																<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+																</svg>
+																Download
+															</button>
+															<button
+																on:click={() => fetchVersions(file.id)}
+																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+															>
+																View Versions
+															</button>
+														</div>
+													</div>
+												</div>
+											{/each}
+										{:else}
+											<!-- Kelurahan without files -->
+											<div class="rounded-lg border border-gray-200 bg-red-50 p-3">
 												<div class="flex items-center justify-between">
 													<div class="flex-1">
 														<div class="flex items-center space-x-3">
-															<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-																<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+															<div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+																<svg class="h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 																</svg>
 															</div>
 															<div>
-																<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
-																<p class="text-xs text-gray-500">
-																	File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																	• Updated: {formatDate(file.updatedAt)}
+																<h5 class="text-sm font-medium text-red-900">{desaName}</h5>
+																<p class="text-xs text-red-600">
+																	No GeoJSON file uploaded yet
 																</p>
 															</div>
 														</div>
 													</div>
 													<div class="flex items-center space-x-2">
-														<button
-															on:click={() => downloadGeoJson(file.id, file.originalFilename)}
-															class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
-															title="Download GeoJSON file"
-														>
-															<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-															</svg>
-															Download
-														</button>
-														<button
-															on:click={() => fetchVersions(file.id)}
-															class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-														>
-															View Versions
-														</button>
+														<span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+															Pending
+														</span>
 													</div>
 												</div>
 											</div>
-										{/each}
+										{/if}
 									{/each}
 								</div>
 							</div>
@@ -716,7 +890,16 @@
 						<!-- Background overlay -->
 						<div
 							class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+							role="button"
+							tabindex="0"
+							aria-label="Close modal"
 							on:click={() => (showVersions = false)}
+							on:keydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									showVersions = false;
+								}
+							}}
 						></div>
 
 						<!-- Modal panel -->
@@ -732,6 +915,8 @@
 									<button
 										on:click={() => (showVersions = false)}
 										class="rounded-md bg-gray-100 p-2 text-gray-400 hover:bg-gray-200"
+										aria-label="Close version history modal"
+										title="Close"
 									>
 										<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path
