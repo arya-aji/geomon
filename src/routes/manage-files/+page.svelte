@@ -44,7 +44,33 @@
 
 		filesList.forEach(file => {
 			const kecamatanName = file.kecamatanName || 'Unknown Kecamatan';
-			const desaName = file.desaaName || 'Unknown Desa';
+			let desaName = file.districtName;
+
+			// If districtName is missing, try to extract from filename
+			if (!desaName && file.originalFilename) {
+				// Try to match common district names from filename
+				const districtNames = ['Kwitang', 'Bungur', 'Cempaka Putih Timur', 'Cideng', 'Cikini', 'Duri Pulo',
+									  'Kebon Melati', 'Utan Panjang', 'Petojo Utara', 'Kebon Kosong', 'Kampung Bali',
+									  'Kebon Kelapa', 'Sumur Batu', 'Kemayoran', 'Petojo Selatan', 'Petamburan',
+									  'Gondangdia', 'Gunung Sahari Selatan', 'Karet Tengsin', 'Serdang', 'Pegangsaan',
+									  'Rawasari', 'Bendungan Hilir', 'Paseban', 'Gambir', 'Cempaka Putih Barat',
+									  'Gunung Sahari Utara', 'Kampung Rawa', 'Karang Anyar', 'Cempaka Baru',
+									  'Kebon Kacang', 'Johar Baru', 'Kenari', 'Harapan Mulya', 'Kramat',
+									  'Tanah Tinggi', 'Pasar Baru', 'Menteng', 'Mangga Dua Selatan'];
+
+				for (const district of districtNames) {
+					if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
+						desaName = district;
+						break;
+					}
+				}
+			}
+
+			// If still no districtName found, mark as Unknown
+			if (!desaName) {
+				desaName = 'Unknown Desa';
+				console.log('File missing districtName and could not extract from filename:', file.originalFilename, file);
+			}
 
 			if (!grouped[kecamatanName]) {
 				grouped[kecamatanName] = {};
@@ -82,7 +108,26 @@
 
 		// Match files to operators based on districtName (case insensitive)
 		filesList.forEach(file => {
-			const districtName = file.districtName; // Use districtName since desaaName is null
+			let districtName = file.districtName;
+
+			// If districtName is missing, try to extract from filename (same logic as above)
+			if (!districtName && file.originalFilename) {
+				const districtNames = ['Kwitang', 'Bungur', 'Cempaka Putih Timur', 'Cideng', 'Cikini', 'Duri Pulo',
+									  'Kebon Melati', 'Utan Panjang', 'Petojo Utara', 'Kebon Kosong', 'Kampung Bali',
+									  'Kebon Kelapa', 'Sumur Batu', 'Kemayoran', 'Petojo Selatan', 'Petamburan',
+									  'Gondangdia', 'Gunung Sahari Selatan', 'Karet Tengsin', 'Serdang', 'Pegangsaan',
+									  'Rawasari', 'Bendungan Hilir', 'Paseban', 'Gambir', 'Cempaka Putih Barat',
+									  'Gunung Sahari Utara', 'Kampung Rawa', 'Karang Anyar', 'Cempaka Baru',
+									  'Kebon Kacang', 'Johar Baru', 'Kenari', 'Harapan Mulya', 'Kramat',
+									  'Tanah Tinggi', 'Pasar Baru', 'Menteng', 'Mangga Dua Selatan'];
+
+				for (const district of districtNames) {
+					if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
+						districtName = district;
+						break;
+					}
+				}
+			}
 
 			// Find which operator this file belongs to
 			operatorAllocations.forEach(operator => {
@@ -107,7 +152,31 @@
 
 			// Group files by district name
 			grouped[operatorName].files.forEach(file => {
-				const districtKey = file.districtName;
+				let districtKey = file.districtName;
+
+				// If districtName is missing, try to extract from filename (same logic as above)
+				if (!districtKey && file.originalFilename) {
+					const districtNames = ['Kwitang', 'Bungur', 'Cempaka Putih Timur', 'Cideng', 'Cikini', 'Duri Pulo',
+										  'Kebon Melati', 'Utan Panjang', 'Petojo Utara', 'Kebon Kosong', 'Kampung Bali',
+										  'Kebon Kelapa', 'Sumur Batu', 'Kemayoran', 'Petojo Selatan', 'Petamburan',
+										  'Gondangdia', 'Gunung Sahari Selatan', 'Karet Tengsin', 'Serdang', 'Pegangsaan',
+										  'Rawasari', 'Bendungan Hilir', 'Paseban', 'Gambir', 'Cempaka Putih Barat',
+										  'Gunung Sahari Utara', 'Kampung Rawa', 'Karang Anyar', 'Cempaka Baru',
+										  'Kebon Kacang', 'Johar Baru', 'Kenari', 'Harapan Mulya', 'Kramat',
+										  'Tanah Tinggi', 'Pasar Baru', 'Menteng', 'Mangga Dua Selatan'];
+
+					for (const district of districtNames) {
+						if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
+							districtKey = district;
+							break;
+						}
+					}
+				}
+
+				if (!districtKey) {
+					districtKey = 'Unknown';
+				}
+
 				if (!filesByDistrict[districtKey]) {
 					filesByDistrict[districtKey] = [];
 				}
@@ -144,6 +213,7 @@
 
 			if (result.success) {
 				files = result.files;
+				console.log('Fetched files:', files);
 				groupedFiles = groupFilesByKecamatanAndDesa(files);
 				operatorGroups = groupFilesByOperator(files);
 			} else {
@@ -176,6 +246,83 @@
 		}
 	}
 
+	async function downloadGeoJson(fileId: number, filename: string) {
+		try {
+			const response = await fetch(`/api/geojson-versions?fileId=${fileId}`);
+			const result = await response.json();
+
+			if (result.success && result.versions.length > 0) {
+				// Get the current version (first in array should be the latest)
+				const currentVersion = result.versions.find(v => v.id === result.file.currentVersionId) || result.versions[0];
+
+				if (currentVersion && currentVersion.geojsonData) {
+					// Create a Blob with the GeoJSON data
+					const blob = new Blob([JSON.stringify(currentVersion.geojsonData, null, 2)], {
+						type: 'application/json'
+					});
+
+					// Create a download link
+					const url = window.URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+
+					// Use the original filename or create a new one
+					const downloadFilename = filename.endsWith('.geojson') ? filename : `${filename}.geojson`;
+					a.download = downloadFilename;
+
+					// Trigger the download
+					document.body.appendChild(a);
+					a.click();
+
+					// Clean up
+					document.body.removeChild(a);
+					window.URL.revokeObjectURL(url);
+				} else {
+					throw new Error('No GeoJSON data found for this file');
+				}
+			} else {
+				throw new Error('Failed to fetch file data');
+			}
+		} catch (err) {
+			console.error('Error downloading file:', err);
+			alert('Failed to download file. Please try again.');
+		}
+	}
+
+	async function downloadVersionGeoJson(version: any, filename: string) {
+		try {
+			if (version && version.geojsonData) {
+				// Create a Blob with the GeoJSON data
+				const blob = new Blob([JSON.stringify(version.geojsonData, null, 2)], {
+					type: 'application/json'
+				});
+
+				// Create a download link
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+
+				// Create filename with version number
+				const baseFilename = filename.replace('.geojson', '');
+				const downloadFilename = `${baseFilename}_v${version.versionNumber}.geojson`;
+				a.download = downloadFilename;
+
+				// Trigger the download
+				document.body.appendChild(a);
+				a.click();
+
+				// Clean up
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			} else {
+				throw new Error('No GeoJSON data found for this version');
+			}
+		} catch (err) {
+			console.error('Error downloading version:', err);
+			alert('Failed to download version. Please try again.');
+		}
+	}
+
 	function formatDate(dateString: string) {
 		return new Date(dateString).toLocaleString('id-ID');
 	}
@@ -191,6 +338,22 @@
 			default:
 				return 'bg-gray-100 text-gray-800';
 		}
+	}
+
+	function getLatestFileForDistrict(files: any[]) {
+		if (files.length === 0) return [];
+
+		// Sort by version number first, then by update date, and take the first (most recent)
+		const latestFile = files.sort((a, b) => {
+			// First sort by currentVersionNumber (higher is better)
+			if (b.currentVersionNumber !== a.currentVersionNumber) {
+				return b.currentVersionNumber - a.currentVersionNumber;
+			}
+			// If versions are equal, sort by update date (more recent is better)
+			return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+		})[0];
+
+		return [latestFile];
 	}
 
 	function generateOperatorSummary() {
@@ -453,12 +616,24 @@
 																	</div>
 																</div>
 															</div>
-															<button
-																on:click={() => fetchVersions(file.id)}
-																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-															>
-																View Versions
-															</button>
+															<div class="flex items-center space-x-2">
+																<button
+																	on:click={() => downloadGeoJson(file.id, file.originalFilename)}
+																	class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
+																	title="Download GeoJSON file"
+																>
+																	<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+																	</svg>
+																	Download
+																</button>
+																<button
+																	on:click={() => fetchVersions(file.id)}
+																	class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+																>
+																	View Versions
+																</button>
+															</div>
 														</div>
 													</div>
 												{/each}
@@ -483,46 +658,49 @@
 										{kecamatanName}
 									</h3>
 								</div>
-								<div class="divide-y divide-gray-200">
+								<div class="p-4 space-y-2">
 									{#each Object.entries(desaGroups as any) as [desaName, desaFiles] (desaName)}
-										<div class="p-4">
-											<h4 class="text-sm font-medium text-gray-700 mb-3">
-												<svg class="inline-block h-4 w-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-												</svg>
-												{desaName}
-											</h4>
-											<div class="space-y-2 ml-5">
-												{#each desaFiles as file (file.id)}
-													<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
-														<div class="flex items-center justify-between">
-															<div class="flex-1">
-																<div class="flex items-center space-x-3">
-																	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-																		<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-																		</svg>
-																	</div>
-																	<div>
-																		<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
-																		<p class="text-xs text-gray-500">
-																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																			• Updated: {formatDate(file.updatedAt)}
-																		</p>
-																	</div>
-																</div>
+										<!-- Get only the latest file for each district -->
+										{#each getLatestFileForDistrict(desaFiles) as file (file.id)}
+											<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+												<div class="flex items-center justify-between">
+													<div class="flex-1">
+														<div class="flex items-center space-x-3">
+															<div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+																<svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+																</svg>
 															</div>
-															<button
-																on:click={() => fetchVersions(file.id)}
-																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-															>
-																View Versions
-															</button>
+															<div>
+																<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
+																<p class="text-xs text-gray-500">
+																	File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																	• Updated: {formatDate(file.updatedAt)}
+																</p>
+															</div>
 														</div>
 													</div>
-												{/each}
+													<div class="flex items-center space-x-2">
+														<button
+															on:click={() => downloadGeoJson(file.id, file.originalFilename)}
+															class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
+															title="Download GeoJSON file"
+														>
+															<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+															</svg>
+															Download
+														</button>
+														<button
+															on:click={() => fetchVersions(file.id)}
+															class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+														>
+															View Versions
+														</button>
+													</div>
+												</div>
 											</div>
-										</div>
+										{/each}
 									{/each}
 								</div>
 							</div>
@@ -532,19 +710,17 @@
 			{/if}
 
 			<!-- Version History Modal -->
-			{#if showVersions && selectedFile}
+			{#if showVersions}
 				<div class="fixed inset-0 z-50 overflow-y-auto">
-					<div
-						class="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0"
-					>
+					<div class="flex min-h-screen items-center justify-center p-4">
+						<!-- Background overlay -->
 						<div
-							class="bg-opacity-75 fixed inset-0 bg-gray-500 transition-opacity"
+							class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
 							on:click={() => (showVersions = false)}
 						></div>
 
-						<div
-							class="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:align-middle"
-						>
+						<!-- Modal panel -->
+						<div class="relative z-10 inline-block w-full max-w-4xl transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all">
 							<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
 								<div class="mb-4 flex items-center justify-between">
 									<h3 class="text-lg font-medium text-gray-900">
@@ -572,9 +748,14 @@
 									<!-- Versions -->
 									<div>
 										<h4 class="mb-3 text-sm font-medium text-gray-900">Versions</h4>
-										<div class="space-y-2">
-											{#each versions as version (version.id)}
-												<div class="rounded-lg border border-gray-200 p-3">
+										{#if versions.length === 0}
+											<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
+												<p class="text-sm text-gray-600">No versions found for this file</p>
+											</div>
+										{:else}
+											<div class="space-y-2">
+												{#each versions as version (version.id)}
+													<div class="rounded-lg border border-gray-200 p-3">
 													<div class="flex items-center justify-between">
 														<div>
 															<div class="flex items-center space-x-2">
@@ -612,44 +793,57 @@
 																</div>
 															{/if}
 														</div>
-														{#if version.id !== selectedFile.currentVersionId}
+														<div class="flex items-center space-x-2">
 															<button
-																on:click={async () => {
-																	if (
-																		confirm(
-																			`Rollback to version ${version.versionNumber}? This will create a new revision.`
-																		)
-																	) {
-																		try {
-																			const response = await fetch('/api/geojson-versions', {
-																				method: 'POST',
-																				headers: { 'Content-Type': 'application/json' },
-																				body: JSON.stringify({
-																					fileId: selectedFile.id,
-																					versionId: version.id
-																				})
-																			});
-																			const result = await response.json();
-																			if (result.success) {
-																				alert(
-																					`Successfully rolled back to version ${version.versionNumber}`
-																				);
-																				await fetchVersions(selectedFile.id);
-																			}
-																		} catch (err) {
-																			alert('Failed to rollback version');
-																		}
-																	}
-																}}
-																class="rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-200"
+																on:click={() => downloadVersionGeoJson(version, selectedFile.originalFilename)}
+																class="rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200"
+																title="Download this version"
 															>
-																Rollback
+																<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+																</svg>
+																Download
 															</button>
-														{/if}
+															{#if version.id !== selectedFile.currentVersionId}
+																<button
+																	on:click={async () => {
+																		if (
+																			confirm(
+																				`Rollback to version ${version.versionNumber}? This will create a new revision.`
+																			)
+																		) {
+																			try {
+																				const response = await fetch('/api/geojson-versions', {
+																					method: 'POST',
+																					headers: { 'Content-Type': 'application/json' },
+																					body: JSON.stringify({
+																						fileId: selectedFile.id,
+																						versionId: version.id
+																					})
+																				});
+																				const result = await response.json();
+																				if (result.success) {
+																					alert(
+																						`Successfully rolled back to version ${version.versionNumber}`
+																					);
+																					await fetchVersions(selectedFile.id);
+																				}
+																			} catch (err) {
+																				alert('Failed to rollback version');
+																			}
+																		}
+																	}}
+																	class="rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-200"
+																>
+																	Rollback
+																</button>
+															{/if}
+														</div>
 													</div>
 												</div>
 											{/each}
-										</div>
+											</div>
+										{/if}
 									</div>
 
 									<!-- Revisions -->

@@ -57,6 +57,7 @@ export async function GET({ url }: { url: URL }) {
 				.select({
 					id: geojsonVersions.id,
 					versionNumber: geojsonVersions.versionNumber,
+					geojsonData: geojsonVersions.geojsonData,
 					anomalySummary: geojsonVersions.anomalySummary,
 					processingMetadata: geojsonVersions.processingMetadata,
 					createdBy: geojsonVersions.createdBy,
@@ -91,6 +92,7 @@ export async function GET({ url }: { url: URL }) {
 					districtName: processedGeojson.districtName,
 					kecamatanName: processedGeojson.kecamatanName,
 					kabupatenName: processedGeojson.kabupatenName,
+					currentVersionId: processedGeojson.currentVersionId,
 					isActive: processedGeojson.isActive,
 					createdAt: processedGeojson.createdAt,
 					updatedAt: processedGeojson.updatedAt

@@ -67,7 +67,6 @@ export const processedGeojson = pgTable('processed_geojson', {
 	districtName: varchar('district_name', { length: 200 }),
 	kecamatanName: varchar('kecamatan_name', { length: 200 }),
 	kabupatenName: varchar('kabupaten_name', { length: 200 }),
-	desaaName: varchar('desa_name', { length: 200 }),
 	currentVersionId: integer('current_version_id'),
 	isActive: boolean('is_active').default(true),
 	createdAt: timestamp('created_at').defaultNow(),
