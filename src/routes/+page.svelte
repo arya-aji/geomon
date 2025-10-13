@@ -1941,9 +1941,9 @@
 
 			const anomalyData = {
 				idsubsls: props.idsubsls,
-				title: `Duplicate ID: ${props.idsubsls}`,
+				title: `ID Duplikat: ${props.idsubsls}`,
 				severity: 'High',
-				description: `Duplicate idsubsls found in ${props.nmsls || 'unknown area'}`,
+				description: `Duplikasi idsubsls ditemukan di ${props.nmsls || 'area tidak diketahui'}`,
 				coordinates: coordinates,
 				properties: {
 					...props,
@@ -1978,9 +1978,9 @@
 				// No idsubsls found in GeoJSON
 				addAnomaly({
 					idsubsls: 'NO_IDSUBSLS_FOUND',
-					title: 'No idsubsls Found in GeoJSON',
+					title: 'Tidak Ada idsubsls Ditemukan di GeoJSON',
 					severity: 'High',
-					description: 'The uploaded GeoJSON file does not contain any idsubsls identifiers',
+					description: 'File GeoJSON yang diunggah tidak mengandung identifier idsubsls apa pun',
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2025,9 +2025,9 @@
 				console.error('SIPW API call failed:', fetchError);
 				addAnomaly({
 					idsubsls: 'SIPW_TIMEOUT_ERROR',
-					title: 'SIPW Data Timeout Error',
+					title: 'Kesalahan Timeout Data SIPW',
 					severity: 'Medium',
-					description: 'Request to fetch SIPW reference data timed out or failed',
+					description: 'Permintaan untuk mengambil data referensi SIPW timeout atau gagal',
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2041,9 +2041,9 @@
 				console.error('Failed to fetch SIPW data, status:', specificSipwResponse.status);
 				addAnomaly({
 					idsubsls: 'SIPW_DATA_ERROR',
-					title: 'SIPW Data Fetch Error',
+					title: 'Kesalahan Pengambilan Data SIPW',
 					severity: 'Medium',
-					description: `Unable to fetch SIPW reference data for validation (Status: ${specificSipwResponse.status})`,
+					description: `Tidak dapat mengambil data referensi SIPW untuk validasi (Status: ${specificSipwResponse.status})`,
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2060,9 +2060,9 @@
 				console.error('Failed to parse SIPW data JSON:', jsonError);
 				addAnomaly({
 					idsubsls: 'SIPW_JSON_ERROR',
-					title: 'SIPW Data Parse Error',
+					title: 'Kesalahan Parsing Data SIPW',
 					severity: 'Medium',
-					description: 'Unable to parse SIPW reference data response',
+					description: 'Tidak dapat memparsing respon data referensi SIPW',
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2076,9 +2076,9 @@
 				console.error('SIPW data is not an array:', specificSipwData);
 				addAnomaly({
 					idsubsls: 'SIPW_FORMAT_ERROR',
-					title: 'SIPW Data Format Error',
+					title: 'Kesalahan Format Data SIPW',
 					severity: 'Medium',
-					description: 'SIPW reference data is not in expected format',
+					description: 'Data referensi SIPW tidak dalam format yang diharapkan',
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2106,9 +2106,9 @@
 						const props = feature.properties;
 						addAnomaly({
 							idsubsls: id,
-							title: 'Extra idsubsls in GeoJSON',
+							title: 'idsubsls Ekstra di GeoJSON',
 							severity: 'Medium',
-							description: `idsubsls ${id} found in GeoJSON but not in SIPW table (District: ${props.nmdesa || 'Unknown'}, ${props.kddesa || 'Unknown'})`,
+							description: `idsubsls ${id} ditemukan di GeoJSON tapi tidak ada di tabel SIPW (Distrik: ${props.nmdesa || 'Tidak Diketahui'}, ${props.kddesa || 'Tidak Diketahui'})`,
 							coordinates: extractCoordinates(feature.geometry),
 							properties: {
 								anomalyType: 'extra_idsubsls',
@@ -2159,9 +2159,9 @@
 						limitedMissingFeatures.forEach((item: any) => {
 							addAnomaly({
 								idsubsls: item.idsubsls,
-								title: 'Missing idsubsls in GeoJSON',
+								title: 'idsubsls Hilang dari GeoJSON',
 								severity: 'High',
-								description: `idsubsls ${item.idsubsls} found in SIPW table but missing from GeoJSON (District: ${item.nmdesa || 'Unknown'}, ${item.kddesa || 'Unknown'})`,
+								description: `idsubsls ${item.idsubsls} ditemukan di tabel SIPW tapi hilang dari GeoJSON (Distrik: ${item.nmdesa || 'Tidak Diketahui'}, ${item.kddesa || 'Tidak Diketahui'})`,
 								coordinates: 'Unknown',
 								properties: {
 									anomalyType: 'missing_idsubsls',
@@ -2178,9 +2178,9 @@
 						if (missingIds.length > 20) {
 							addAnomaly({
 								idsubsls: 'MULTIPLE_MISSING_IDS',
-								title: 'Multiple Missing idsubsls in GeoJSON',
+								title: 'Beberapa idsubsls Hilang dari GeoJSON',
 								severity: 'High',
-								description: `Found ${missingIds.length} idsubsls in SIPW table but missing from GeoJSON. Showing first 20. Please check if your GeoJSON file is complete.`,
+								description: `Ditemukan ${missingIds.length} idsubsls di tabel SIPW tapi hilang dari GeoJSON. Menampilkan 20 pertama. Silakan periksa apakah file GeoJSON Anda lengkap.`,
 								coordinates: 'Unknown',
 								properties: {
 									anomalyType: 'multiple_missing_ids',
@@ -2190,12 +2190,12 @@
 							});
 						}
 					} else if (missingIds.length >= 100) {
-						console.log(`Too many missing IDs (${missingIds.length}), showing summary only`);
+						console.log(`Terlalu banyak missing IDs (${missingIds.length}), menampilkan ringkasan saja`);
 						addAnomaly({
 							idsubsls: 'TOO_MANY_MISSING',
-							title: 'Too Many Missing idsubsls',
+							title: 'Terlalu Banyak idsubsls yang Hilang',
 							severity: 'Medium',
-							description: `Found ${missingIds.length} idsubsls in SIPW but missing from GeoJSON. This may indicate a data scope mismatch or incomplete GeoJSON file.`,
+							description: `Ditemukan ${missingIds.length} idsubsls di SIPW tapi hilang dari GeoJSON. Ini mungkin menunjukkan ketidakcocokan scope data atau file GeoJSON tidak lengkap.`,
 							coordinates: 'Unknown',
 							properties: {
 								anomalyType: 'too_many_missing',
@@ -2246,9 +2246,9 @@
 							mismatchCount++;
 							addAnomaly({
 								idsubsls: id,
-								title: 'Mismatched idsubsls Data',
+								title: 'Data idsubsls Tidak Cocok',
 								severity: 'Medium',
-								description: `idsubsls ${id} has different properties between GeoJSON and SIPW table. Mismatches: ${mismatches.join(', ')}`,
+								description: `idsubsls ${id} memiliki properti yang berbeda antara GeoJSON dan tabel SIPW. Ketidakcocokan: ${mismatches.join(', ')}`,
 								coordinates: extractCoordinates(feature.geometry),
 								properties: {
 									anomalyType: 'mismatched_idsubsls',
@@ -2281,9 +2281,9 @@
 			console.error('Error checking SIPW data consistency:', error);
 			addAnomaly({
 				idsubsls: 'SIPW_CHECK_ERROR',
-				title: 'SIPW Validation Error',
+				title: 'Kesalahan Validasi SIPW',
 				severity: 'Medium',
-				description: 'Error occurred while validating GeoJSON against SIPW data',
+				description: 'Terjadi kesalahan saat memvalidasi GeoJSON terhadap data SIPW',
 				coordinates: 'Unknown',
 				detectedAt: new Date().toLocaleString(),
 				properties: {
