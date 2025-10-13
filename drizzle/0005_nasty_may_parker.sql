@@ -1,0 +1,1 @@
+ALTER TABLE "processed_geojson" DROP COLUMN "desa_name";

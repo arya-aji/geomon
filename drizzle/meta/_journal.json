@@ -36,6 +36,13 @@
       "when": 1759968987110,
       "tag": "0004_chunky_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760069869501,
+      "tag": "0005_nasty_may_parker",
+      "breakpoints": true
     }
   ]
 }

@@ -2283,7 +2283,6 @@
 					districtName: districtName,
 					kecamatanName: kecamatanName,
 					kabupatenName: kabupatenName,
-					desaaName: desaName,
 					userId: 'anonymous', // You can get this from auth system later
 					changeNotes: savedFileId ? 'Updated after review' : 'Initial upload',
 					revisionType: savedFileId ? 'correction' : 'new_data',
