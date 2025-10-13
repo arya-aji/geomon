@@ -1990,26 +1990,35 @@
 				return;
 			}
 
-			// Extract district codes from GeoJSON to filter SIPW data
+			// Extract district codes from GeoJSON - use first 10 digits of idsubsls for more specific filtering
 			const geoJsonDistricts = new Set<string>();
 			geoJson.features.forEach((feature: any) => {
-				if (feature.properties && feature.properties.kddesa) {
-					geoJsonDistricts.add(feature.properties.kddesa.toString());
+				if (feature.properties && feature.properties.idsubsls) {
+					const idsubsls = feature.properties.idsubsls.toString();
+					if (idsubsls.length >= 10) {
+						const districtCode = idsubsls.substring(0, 10);
+						geoJsonDistricts.add(districtCode);
+					}
 				}
 			});
 
-			// Fetch SIPW data from database
-			let sipwResponse;
+			console.log('Using district codes for SIPW filtering:', Array.from(geoJsonDistricts));
+
+			// Step 1: Get SIPW data for the specific GeoJSON IDs (for Rules 2 & 4)
+			let specificSipwResponse;
 			try {
-				sipwResponse = await fetch('/api/sipw-data', {
+				const requestBody = {
+					districts: Array.from(geoJsonDistricts),
+					idsubsls: Array.from(geoJsonIds)
+				};
+				console.log('Sending SIPW request with body:', requestBody);
+
+				specificSipwResponse = await fetch('/api/sipw-data', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
 					},
-					body: JSON.stringify({
-						districts: Array.from(geoJsonDistricts),
-						idsubsls: Array.from(geoJsonIds)
-					}),
+					body: JSON.stringify(requestBody),
 					signal: AbortSignal.timeout(10000) // 10 second timeout
 				});
 			} catch (fetchError) {
@@ -2028,13 +2037,13 @@
 				return;
 			}
 
-			if (!sipwResponse.ok) {
-				console.error('Failed to fetch SIPW data, status:', sipwResponse.status);
+			if (!specificSipwResponse.ok) {
+				console.error('Failed to fetch SIPW data, status:', specificSipwResponse.status);
 				addAnomaly({
 					idsubsls: 'SIPW_DATA_ERROR',
 					title: 'SIPW Data Fetch Error',
 					severity: 'Medium',
-					description: `Unable to fetch SIPW reference data for validation (Status: ${sipwResponse.status})`,
+					description: `Unable to fetch SIPW reference data for validation (Status: ${specificSipwResponse.status})`,
 					coordinates: 'Unknown',
 					detectedAt: new Date().toLocaleString(),
 					properties: {
@@ -2044,9 +2053,9 @@
 				return;
 			}
 
-			let sipwData;
+			let specificSipwData;
 			try {
-				sipwData = await sipwResponse.json();
+				specificSipwData = await specificSipwResponse.json();
 			} catch (jsonError) {
 				console.error('Failed to parse SIPW data JSON:', jsonError);
 				addAnomaly({
@@ -2063,8 +2072,8 @@
 				return;
 			}
 
-			if (!Array.isArray(sipwData)) {
-				console.error('SIPW data is not an array:', sipwData);
+			if (!Array.isArray(specificSipwData)) {
+				console.error('SIPW data is not an array:', specificSipwData);
 				addAnomaly({
 					idsubsls: 'SIPW_FORMAT_ERROR',
 					title: 'SIPW Data Format Error',
@@ -2079,10 +2088,15 @@
 				return;
 			}
 
-			const sipwIds = new Set<string>(sipwData.map((item: any) => item.idsubsls));
+			const specificSipwIds = new Set<string>(specificSipwData.map((item: any) => item.idsubsls));
 
-			// Rule 2: Find extra idsubsls (in GeoJSON but not in SIPW) - Create individual anomalies
-			const extraIds = [...geoJsonIds].filter((id) => !sipwIds.has(id));
+			// Debug: Show what GeoJSON IDs were not found in SIPW
+			const notFoundInSIPW = [...geoJsonIds].filter((id) => !specificSipwIds.has(id));
+			console.log('GeoJSON IDs not found in SIPW database:', notFoundInSIPW);
+			console.log('Sample of returned SIPW IDs:', [...specificSipwIds].slice(0, 5));
+
+			// Rule 2: Find extra idsubsls (in GeoJSON but not in SIPW)
+			const extraIds = [...geoJsonIds].filter((id) => !specificSipwIds.has(id));
 
 			if (extraIds.length > 0) {
 				// Create individual anomaly for each extra idsubsls
@@ -2110,40 +2124,101 @@
 				});
 			}
 
-			// Rule 3: Find missing idsubsls (in SIPW but not in GeoJSON) - Create individual anomalies
-			const missingIds = [...sipwIds].filter((id) => !geoJsonIds.has(id));
+			// Step 2: For Rule 3 (missing IDs), fetch broader SIPW data and compare directly
+			try {
+				console.log('Fetching broader SIPW data for missing ID detection...');
 
-			if (missingIds.length > 0) {
-				const missingFeatures = sipwData.filter((item: any) => missingIds.includes(item.idsubsls));
-
-				// Create individual anomaly for each missing idsubsls
-				missingFeatures.forEach((item: any) => {
-					addAnomaly({
-						idsubsls: item.idsubsls,
-						title: 'Missing idsubsls in GeoJSON',
-						severity: 'High',
-						description: `idsubsls ${item.idsubsls} found in SIPW table but missing from GeoJSON (District: ${item.nmdesa || 'Unknown'}, ${item.kddesa || 'Unknown'})`,
-						coordinates: 'Unknown',
-						properties: {
-							anomalyType: 'missing_idsubsls',
-							sipwData: item,
-							nmdesa: item.nmdesa,
-							kddesa: item.kddesa,
-							nmkec: item.nmkec,
-							nmkab: item.nmkab
-						}
-					});
+				const allSipwResponse = await fetch('/api/sipw-data', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						districts: Array.from(geoJsonDistricts)
+						// Get ALL SIPW data for these districts (no idsubsls filter)
+					}),
+					signal: AbortSignal.timeout(10000)
 				});
+
+				if (allSipwResponse.ok) {
+					const allSipwData = await allSipwResponse.json();
+					const allSipwIds = new Set<string>(allSipwData.map((item: any) => item.idsubsls));
+
+					console.log(`SIPW data returned: ${allSipwData.length} records`);
+
+					// Rule 3: Find missing idsubsls (in SIPW but not in GeoJSON)
+					const missingIds = [...allSipwIds].filter((id) => !geoJsonIds.has(id));
+					console.log(`Found ${missingIds.length} missing IDs in SIPW compared to GeoJSON`);
+
+					// Only report missing IDs if there are fewer than 100 (to avoid overwhelming)
+					if (missingIds.length > 0 && missingIds.length < 100) {
+						const missingFeatures = allSipwData.filter((item: any) => missingIds.includes(item.idsubsls));
+
+						// Create individual anomaly for each missing idsubsls (limit to first 20)
+						const limitedMissingFeatures = missingFeatures.slice(0, 20);
+						limitedMissingFeatures.forEach((item: any) => {
+							addAnomaly({
+								idsubsls: item.idsubsls,
+								title: 'Missing idsubsls in GeoJSON',
+								severity: 'High',
+								description: `idsubsls ${item.idsubsls} found in SIPW table but missing from GeoJSON (District: ${item.nmdesa || 'Unknown'}, ${item.kddesa || 'Unknown'})`,
+								coordinates: 'Unknown',
+								properties: {
+									anomalyType: 'missing_idsubsls',
+									sipwData: item,
+									nmdesa: item.nmdesa,
+									kddesa: item.kddesa,
+									nmkec: item.nmkec,
+									nmkab: item.nmkab
+								}
+							});
+						});
+
+						// If there are many missing IDs, create a summary anomaly
+						if (missingIds.length > 20) {
+							addAnomaly({
+								idsubsls: 'MULTIPLE_MISSING_IDS',
+								title: 'Multiple Missing idsubsls in GeoJSON',
+								severity: 'High',
+								description: `Found ${missingIds.length} idsubsls in SIPW table but missing from GeoJSON. Showing first 20. Please check if your GeoJSON file is complete.`,
+								coordinates: 'Unknown',
+								properties: {
+									anomalyType: 'multiple_missing_ids',
+									totalMissing: missingIds.length,
+									districts: Array.from(geoJsonDistricts)
+								}
+							});
+						}
+					} else if (missingIds.length >= 100) {
+						console.log(`Too many missing IDs (${missingIds.length}), showing summary only`);
+						addAnomaly({
+							idsubsls: 'TOO_MANY_MISSING',
+							title: 'Too Many Missing idsubsls',
+							severity: 'Medium',
+							description: `Found ${missingIds.length} idsubsls in SIPW but missing from GeoJSON. This may indicate a data scope mismatch or incomplete GeoJSON file.`,
+							coordinates: 'Unknown',
+							properties: {
+								anomalyType: 'too_many_missing',
+								totalMissing: missingIds.length,
+								districts: Array.from(geoJsonDistricts)
+							}
+						});
+					}
+				} else {
+					console.error('Failed to fetch broader SIPW data, status:', allSipwResponse.status);
+				}
+			} catch (error) {
+				console.warn('Could not fetch broader SIPW data for missing ID comparison:', error);
 			}
 
 			// Rule 4: Find mismatched idsubsls (exist in both but with different properties)
-			const commonIds = [...geoJsonIds].filter((id) => sipwIds.has(id));
+			const commonIds = [...geoJsonIds].filter((id) => specificSipwIds.has(id));
 			let mismatchCount = 0;
 
 			if (commonIds.length > 0) {
 				commonIds.forEach((id) => {
 					const feature = featuresById[id];
-					const sipwItem = sipwData.find((item: any) => item.idsubsls === id);
+					const sipwItem = specificSipwData.find((item: any) => item.idsubsls === id);
 
 					if (feature && feature.properties && sipwItem) {
 						const props = feature.properties;
@@ -2200,7 +2275,7 @@
 			}
 
 			console.log(
-				`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, SIPW: ${sipwIds.size}, Extra: ${extraIds.length}, Missing: ${missingIds.length}, Mismatched: ${mismatchCount}`
+				`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, Specific SIPW: ${specificSipwIds.size}, Extra: ${extraIds.length}, Mismatched: ${mismatchCount}`
 			);
 		} catch (error) {
 			console.error('Error checking SIPW data consistency:', error);
