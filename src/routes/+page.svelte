@@ -25,20 +25,24 @@
 	let desaName = '';
 	let savedFileId: number | null = null;
 
-	// Function to add anomaly with duplicate check based on idsubsls
+	// Function to add anomaly with improved duplicate checking
 	function addAnomaly(anomalyData: any) {
-		// Check if anomaly with same idsubsls already exists
-		const existingAnomaly = anomalies.find((a) => a.idsubsls === anomalyData.idsubsls);
+		// Check for existing anomaly with same idsubsls and same type
+		const existingAnomaly = anomalies.find((a) =>
+			a.idsubsls === anomalyData.idsubsls &&
+			a.properties?.anomalyType === anomalyData.properties?.anomalyType
+		);
 
 		if (existingAnomaly) {
-			console.warn(`Anomaly with idsubsls ${anomalyData.idsubsls} already exists, skipping...`);
+			console.warn(`Anomaly with idsubsls ${anomalyData.idsubsls} and type ${anomalyData.properties?.anomalyType} already exists, skipping...`);
 			return false;
 		}
 
-		// Add new anomaly with timestamp
+		// Add new anomaly with timestamp and unique ID
 		const newAnomaly = {
 			...anomalyData,
-			detectedAt: new Date().toLocaleString()
+			detectedAt: new Date().toLocaleString(),
+			uniqueId: `${anomalyData.idsubsls}_${anomalyData.properties?.anomalyType || 'unknown'}_${Date.now()}`
 		};
 
 		anomalies = [...anomalies, newAnomaly];
@@ -327,85 +331,23 @@
 				window.mapLabels = [];
 			}
 
-			// Rule 7: Check that all features belong to the same district (check first)
-			const districtValidation = checkSingleDistrictWithReturn(geoJson);
-
-			// If Rule 7 fails, show FATAL ERROR and stop all processing
-			if (!districtValidation.passed) {
-				console.error('FATAL ERROR: Multiple districts detected in upload');
-
-				// Show fatal error alert
-				const districtList = districtValidation.anomalyData!.additionalInfo.districts.join(', ');
-				throw new Error(
-					`FATAL ERROR: Multiple districts detected (${districtList}).\n\nONLY ACCEPT 1 DISTRICT PER UPLOAD.\n\nPlease upload a file containing only one district at a time.`
-				);
-			} else {
-				// Extract district information from first feature
-				if (geoJson.type === 'FeatureCollection' && geoJson.features.length > 0) {
-					const firstFeature = geoJson.features[0];
-					if (firstFeature.properties) {
-						districtCode = firstFeature.properties.kddesa || firstFeature.properties.nmdesa || 'unknown';
-						districtName = firstFeature.properties.nmdesa || 'unknown';
-						desaName = firstFeature.properties.nmdesa || 'unknown';
-						kecamatanName = firstFeature.properties.nmkec || 'unknown';
-						kabupatenName = firstFeature.properties.nmkab || 'unknown';
-					}
+			// Extract district information from first feature
+			if (geoJson.type === 'FeatureCollection' && geoJson.features.length > 0) {
+				const firstFeature = geoJson.features[0];
+				if (firstFeature.properties) {
+					districtCode = firstFeature.properties.kddesa || firstFeature.properties.nmdesa || 'unknown';
+					districtName = firstFeature.properties.nmdesa || 'unknown';
+					desaName = firstFeature.properties.nmdesa || 'unknown';
+					kecamatanName = firstFeature.properties.nmkec || 'unknown';
+					kabupatenName = firstFeature.properties.nmkab || 'unknown';
 				}
-
-				// Rule 1: Check for duplicate idsubsls
-				const uploadedIds = new Set();
-				const duplicateFeatures: any[] = [];
-
-				if (geoJson.type === 'FeatureCollection') {
-					geoJson.features.forEach((feature: any) => {
-						if (feature.properties && feature.properties.idsubsls) {
-							if (uploadedIds.has(feature.properties.idsubsls)) {
-								duplicateFeatures.push(feature);
-							} else {
-								uploadedIds.add(feature.properties.idsubsls);
-							}
-						}
-					});
-				}
-
-				// Add duplicate idsubsls as anomalies
-				duplicateFeatures.forEach((feature: any) => {
-					const props = feature.properties;
-					const coordinates = extractCoordinates(feature.geometry);
-
-					const anomalyData = {
-						idsubsls: props.idsubsls,
-						title: `Duplicate ID: ${props.idsubsls}`,
-						severity: 'High',
-						description: `Duplicate idsubsls found in ${props.nmsls || 'unknown area'}`,
-						coordinates: coordinates,
-						properties: props
-					};
-
-					addAnomaly(anomalyData);
-				});
-
-				// Rule 2: Check for overlaps and gaps
-				checkTopologyIssues(geoJson);
-
-				// Rule 3: Check for polygons with interior rings (holes)
-				checkInteriorRings(geoJson);
-
-				// Rule 4: Check for area discrepancies (gaps/holes detected by area calculation)
-				checkAreaDiscrepancies(geoJson);
-
-				// Rule 5: Merge polygons by kddesa and check for holes
-				checkMergedPolygonHoles(geoJson);
-
-				// Rule 6: Check for invalid geometries
-				checkInvalidGeometries(geoJson);
-
-				// Rule 8: Compare GeoJSON with SIPW table data
-				checkSIPWDataConsistency(geoJson);
-
-				// Rule 9: Check for FRS-related anomalies
-				await checkFRSAnomalies(geoJson);
 			}
+
+			// Rule 1: Check for duplicate idsubsls
+			await checkDuplicateIdsubsls(geoJson);
+
+			// Rule 2 & 3: Check SLS consistency with SIPW table
+			await checkSIPWConsistency(geoJson);
 
 			// Add GeoJSON to map
 			geoJSONLayer = L.geoJSON(geoJson, {
@@ -1975,112 +1917,303 @@
 		}
 	}
 
-	async function checkFRSAnomalies(geoJson: any) {
+	// Rule 1: Check for duplicate idsubsls in GeoJSON
+	async function checkDuplicateIdsubsls(geoJson: any) {
+		if (geoJson.type !== 'FeatureCollection') return;
+
+		const uploadedIds = new Set();
+		const duplicateFeatures: any[] = [];
+
+		geoJson.features.forEach((feature: any) => {
+			if (feature.properties && feature.properties.idsubsls) {
+				if (uploadedIds.has(feature.properties.idsubsls)) {
+					duplicateFeatures.push(feature);
+				} else {
+					uploadedIds.add(feature.properties.idsubsls);
+				}
+			}
+		});
+
+		// Add duplicate idsubsls as anomalies
+		duplicateFeatures.forEach((feature: any) => {
+			const props = feature.properties;
+			const coordinates = extractCoordinates(feature.geometry);
+
+			const anomalyData = {
+				idsubsls: props.idsubsls,
+				title: `Duplicate ID: ${props.idsubsls}`,
+				severity: 'High',
+				description: `Duplicate idsubsls found in ${props.nmsls || 'unknown area'}`,
+				coordinates: coordinates,
+				properties: {
+					...props,
+					anomalyType: 'duplicate_idsubsls'
+				}
+			};
+
+			addAnomaly(anomalyData);
+		});
+
+		console.log(`Duplicate idsubsls check completed. Found ${duplicateFeatures.length} duplicates`);
+	}
+
+	// Rule 2 & 3: Check SLS consistency with SIPW table (extra and missing SLS)
+	async function checkSIPWConsistency(geoJson: any) {
+		if (geoJson.type !== 'FeatureCollection') return;
+
 		try {
-			console.log('Checking FRS-related anomalies...');
+			// Extract idsubsls from GeoJSON
+			const geoJsonIds = new Set<string>();
+			const featuresById: { [key: string]: any } = {};
 
-			// Get all idsubsls from uploaded GeoJSON
-			const features = geoJson.features || [];
-			const geoJsonIdsls = features
-				.filter((feature: any) => feature.properties && feature.properties.idsubsls)
-				.map((feature: any) => feature.properties.idsubsls);
-
-			console.log(`Sending ${geoJsonIdsls.length} GeoJSON idsubsls to FRS API`);
-
-			// Fetch FRS anomalies from API using POST with GeoJSON idsubsls
-			const response = await fetch('/api/frs-anomalies', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ geoJsonIdsls })
+			geoJson.features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.idsubsls) {
+					const id = feature.properties.idsubsls.toString();
+					geoJsonIds.add(id);
+					featuresById[id] = feature;
+				}
 			});
 
-			if (!response.ok) {
-				console.error('Failed to fetch FRS anomalies:', response.statusText);
+			if (geoJsonIds.size === 0) {
+				// No idsubsls found in GeoJSON
+				addAnomaly({
+					idsubsls: 'NO_IDSUBSLS_FOUND',
+					title: 'No idsubsls Found in GeoJSON',
+					severity: 'High',
+					description: 'The uploaded GeoJSON file does not contain any idsubsls identifiers',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					properties: {
+						anomalyType: 'no_idsubsls'
+					}
+				});
 				return;
 			}
 
-			const frsAnomalies = await response.json();
-			console.log(`Found ${frsAnomalies.length} FRS-related anomalies for uploaded areas`);
-
-			// Get all features from uploaded GeoJSON for coordinate matching
-			const featuresById = new Map();
-			features.forEach((feature: any) => {
-				if (feature.properties && feature.properties.idsubsls) {
-					featuresById.set(feature.properties.idsubsls, feature);
+			// Extract district codes from GeoJSON to filter SIPW data
+			const geoJsonDistricts = new Set<string>();
+			geoJson.features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.kddesa) {
+					geoJsonDistricts.add(feature.properties.kddesa.toString());
 				}
 			});
 
-			// Add FRS anomalies to the anomaly list
-			frsAnomalies.forEach((frsAnomaly: any) => {
-				// For anomalies that have corresponding GeoJSON features, add coordinates
-				if (frsAnomaly.idsubsls && featuresById.has(frsAnomaly.idsubsls)) {
-					const feature = featuresById.get(frsAnomaly.idsubsls);
-					const coordinates = extractCoordinates(feature.geometry);
+			// Fetch SIPW data from database
+			let sipwResponse;
+			try {
+				sipwResponse = await fetch('/api/sipw-data', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						districts: Array.from(geoJsonDistricts),
+						idsubsls: Array.from(geoJsonIds)
+					}),
+					signal: AbortSignal.timeout(10000) // 10 second timeout
+				});
+			} catch (fetchError) {
+				console.error('SIPW API call failed:', fetchError);
+				addAnomaly({
+					idsubsls: 'SIPW_TIMEOUT_ERROR',
+					title: 'SIPW Data Timeout Error',
+					severity: 'Medium',
+					description: 'Request to fetch SIPW reference data timed out or failed',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					properties: {
+						anomalyType: 'sipw_timeout'
+					}
+				});
+				return;
+			}
 
-					const anomalyData = {
-						idsubsls: frsAnomaly.idsubsls,
-						title: frsAnomaly.title,
-						severity: frsAnomaly.severity.charAt(0).toUpperCase() + frsAnomaly.severity.slice(1), // Capitalize first letter
-						description: frsAnomaly.description,
-						coordinates: coordinates,
-						detectedAt: new Date().toLocaleString(),
+			if (!sipwResponse.ok) {
+				console.error('Failed to fetch SIPW data, status:', sipwResponse.status);
+				addAnomaly({
+					idsubsls: 'SIPW_DATA_ERROR',
+					title: 'SIPW Data Fetch Error',
+					severity: 'Medium',
+					description: `Unable to fetch SIPW reference data for validation (Status: ${sipwResponse.status})`,
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					properties: {
+						anomalyType: 'sipw_fetch_error'
+					}
+				});
+				return;
+			}
+
+			let sipwData;
+			try {
+				sipwData = await sipwResponse.json();
+			} catch (jsonError) {
+				console.error('Failed to parse SIPW data JSON:', jsonError);
+				addAnomaly({
+					idsubsls: 'SIPW_JSON_ERROR',
+					title: 'SIPW Data Parse Error',
+					severity: 'Medium',
+					description: 'Unable to parse SIPW reference data response',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					properties: {
+						anomalyType: 'sipw_parse_error'
+					}
+				});
+				return;
+			}
+
+			if (!Array.isArray(sipwData)) {
+				console.error('SIPW data is not an array:', sipwData);
+				addAnomaly({
+					idsubsls: 'SIPW_FORMAT_ERROR',
+					title: 'SIPW Data Format Error',
+					severity: 'Medium',
+					description: 'SIPW reference data is not in expected format',
+					coordinates: 'Unknown',
+					detectedAt: new Date().toLocaleString(),
+					properties: {
+						anomalyType: 'sipw_format_error'
+					}
+				});
+				return;
+			}
+
+			const sipwIds = new Set<string>(sipwData.map((item: any) => item.idsubsls));
+
+			// Rule 2: Find extra idsubsls (in GeoJSON but not in SIPW) - Create individual anomalies
+			const extraIds = [...geoJsonIds].filter((id) => !sipwIds.has(id));
+
+			if (extraIds.length > 0) {
+				// Create individual anomaly for each extra idsubsls
+				extraIds.forEach((id) => {
+					const feature = featuresById[id];
+					if (feature && feature.properties) {
+						const props = feature.properties;
+						addAnomaly({
+							idsubsls: id,
+							title: 'Extra idsubsls in GeoJSON',
+							severity: 'Medium',
+							description: `idsubsls ${id} found in GeoJSON but not in SIPW table (District: ${props.nmdesa || 'Unknown'}, ${props.kddesa || 'Unknown'})`,
+							coordinates: extractCoordinates(feature.geometry),
+							properties: {
+								anomalyType: 'extra_idsubsls',
+								geojsonFeature: feature,
+								nmdesa: props.nmdesa,
+								kddesa: props.kddesa,
+								nmkec: props.nmkec,
+								nmkab: props.nmkab,
+								nmsls: props.nmsls
+							}
+						});
+					}
+				});
+			}
+
+			// Rule 3: Find missing idsubsls (in SIPW but not in GeoJSON) - Create individual anomalies
+			const missingIds = [...sipwIds].filter((id) => !geoJsonIds.has(id));
+
+			if (missingIds.length > 0) {
+				const missingFeatures = sipwData.filter((item: any) => missingIds.includes(item.idsubsls));
+
+				// Create individual anomaly for each missing idsubsls
+				missingFeatures.forEach((item: any) => {
+					addAnomaly({
+						idsubsls: item.idsubsls,
+						title: 'Missing idsubsls in GeoJSON',
+						severity: 'High',
+						description: `idsubsls ${item.idsubsls} found in SIPW table but missing from GeoJSON (District: ${item.nmdesa || 'Unknown'}, ${item.kddesa || 'Unknown'})`,
+						coordinates: 'Unknown',
 						properties: {
-							anomalyType: 'frs_change',
-							frsData: frsAnomaly.frsData,
-							sipwData: frsAnomaly.sipwData,
-							geojsonFeature: feature,
-							nmsls: frsAnomaly.nmsls || feature.properties?.nmsls,
-							idsls: frsAnomaly.idsls,
-							kdprov: frsAnomaly.kdprov,
-							kdkab: frsAnomaly.kdkab,
-							nmkab: frsAnomaly.nmkab,
-							statusText: frsAnomaly.frsData?.statusText,
-							changeType: frsAnomaly.frsData?.statusText
+							anomalyType: 'missing_idsubsls',
+							sipwData: item,
+							nmdesa: item.nmdesa,
+							kddesa: item.kddesa,
+							nmkec: item.nmkec,
+							nmkab: item.nmkab
 						}
-					};
+					});
+				});
+			}
 
-					addAnomaly(anomalyData);
-				} else if (frsAnomaly.type === 'missing_sls_after_merge' ||
-					   frsAnomaly.type === 'idsls_mismatch_after' ||
-					   frsAnomaly.type === 'idsls_mismatch_before') {
-					// For missing SLS or ID mismatches, create anomaly without coordinates
-					const anomalyData = {
-						idsubsls: frsAnomaly.type === 'idsls_mismatch_before' ? frsAnomaly.idsubsls : `${frsAnomaly.type}-${frsAnomaly.idsls}`,
-						title: frsAnomaly.title,
-						severity: frsAnomaly.severity.charAt(0).toUpperCase() + frsAnomaly.severity.slice(1),
-						description: frsAnomaly.description,
-						coordinates: frsAnomaly.type === 'idsls_mismatch_before' ? 'Available - Old SLS still exists' : 'No coordinates - Missing SLS',
-						detectedAt: new Date().toLocaleString(),
-						properties: {
-							anomalyType: frsAnomaly.type,
-							frsData: frsAnomaly.frsData,
-							sipwData: frsAnomaly.sipwData,
-							nmsls: frsAnomaly.nmsls,
-							idsls: frsAnomaly.idsls,
-							statusText: frsAnomaly.frsData?.statusText,
-							changeType: frsAnomaly.frsData?.statusText,
-							actionRequired: frsAnomaly.type === 'idsls_mismatch_after' ? 'Update GeoJSON with new SLS' :
-										   frsAnomaly.type === 'idsls_mismatch_before' ? 'Remove old SLS from GeoJSON' :
-										   'Add new SLS data to system'
+			// Rule 4: Find mismatched idsubsls (exist in both but with different properties)
+			const commonIds = [...geoJsonIds].filter((id) => sipwIds.has(id));
+			let mismatchCount = 0;
+
+			if (commonIds.length > 0) {
+				commonIds.forEach((id) => {
+					const feature = featuresById[id];
+					const sipwItem = sipwData.find((item: any) => item.idsubsls === id);
+
+					if (feature && feature.properties && sipwItem) {
+						const props = feature.properties;
+						const mismatches: string[] = [];
+
+						// Check for property mismatches
+						if (props.kddesa && sipwItem.kddesa && props.kddesa.toString() !== sipwItem.kddesa.toString()) {
+							mismatches.push(`kddesa: GeoJSON(${props.kddesa}) vs SIPW(${sipwItem.kddesa})`);
 						}
-					};
 
-					addAnomaly(anomalyData);
-				}
-			});
+						if (props.nmsls && sipwItem.nmsls && props.nmsls.trim() !== sipwItem.nmsls.trim()) {
+							mismatches.push(`nmsls: GeoJSON("${props.nmsls}") vs SIPW("${sipwItem.nmsls}")`);
+						}
 
-			console.log(`FRS anomaly check completed. Added ${frsAnomalies.length} FRS-related anomalies`);
+						if (props.nmkec && sipwItem.nmkec && props.nmkec.trim() !== sipwItem.nmkec.trim()) {
+							mismatches.push(`nmkec: GeoJSON("${props.nmkec}") vs SIPW("${sipwItem.nmkec}")`);
+						}
+
+						if (props.nmkab && sipwItem.nmkab && props.nmkab.trim() !== sipwItem.nmkab.trim()) {
+							mismatches.push(`nmkab: GeoJSON("${props.nmkab}") vs SIPW("${sipwItem.nmkab}")`);
+						}
+
+						// If any mismatches found, create anomaly
+						if (mismatches.length > 0) {
+							mismatchCount++;
+							addAnomaly({
+								idsubsls: id,
+								title: 'Mismatched idsubsls Data',
+								severity: 'Medium',
+								description: `idsubsls ${id} has different properties between GeoJSON and SIPW table. Mismatches: ${mismatches.join(', ')}`,
+								coordinates: extractCoordinates(feature.geometry),
+								properties: {
+									anomalyType: 'mismatched_idsubsls',
+									geojsonFeature: feature,
+									sipwData: sipwItem,
+									mismatches: mismatches,
+									geojsonProps: {
+										kddesa: props.kddesa,
+										nmsls: props.nmsls,
+										nmkec: props.nmkec,
+										nmkab: props.nmkab
+									},
+									sipwProps: {
+										kddesa: sipwItem.kddesa,
+										nmsls: sipwItem.nmsls,
+										nmkec: sipwItem.nmkec,
+										nmkab: sipwItem.nmkab
+									}
+								}
+							});
+						}
+					}
+				});
+			}
+
+			console.log(
+				`SIPW consistency check completed. GeoJSON: ${geoJsonIds.size}, SIPW: ${sipwIds.size}, Extra: ${extraIds.length}, Missing: ${missingIds.length}, Mismatched: ${mismatchCount}`
+			);
 		} catch (error) {
-			console.error('Error checking FRS anomalies:', error);
+			console.error('Error checking SIPW data consistency:', error);
 			addAnomaly({
-				idsubsls: 'FRS_CHECK_ERROR',
-				title: 'FRS Validation Error',
+				idsubsls: 'SIPW_CHECK_ERROR',
+				title: 'SIPW Validation Error',
 				severity: 'Medium',
-				description: 'Error occurred while checking FRS-related anomalies',
+				description: 'Error occurred while validating GeoJSON against SIPW data',
 				coordinates: 'Unknown',
-				detectedAt: new Date().toLocaleString()
+				detectedAt: new Date().toLocaleString(),
+				properties: {
+					anomalyType: 'sipw_check_error'
+				}
 			});
 		}
 	}
@@ -2335,7 +2468,7 @@
 									<p class="mt-1 text-xs text-gray-500">Upload GeoJSON data to start monitoring</p>
 								</div>
 							{:else}
-								{#each anomalies.slice(0, 3) as anomaly (anomaly.idsubsls)}
+								{#each anomalies.slice(0, 3) as anomaly (anomaly.uniqueId)}
 									<div
 										class="cursor-pointer rounded-lg p-3 transition-all hover:scale-105 hover:shadow-md"
 										class:bg-red-50={anomaly.severity === 'High'}
@@ -2538,13 +2671,14 @@
 							</ul>
 						</div>
 
-						<div class="rounded-md border border-purple-200 bg-purple-50 p-4">
-							<h3 class="mb-2 text-sm font-medium text-purple-900">FRS Changes</h3>
-							<ul class="space-y-1 text-xs text-purple-700">
-								<li>• 🔄 FRS changes detected automatically</li>
-								<li>• Shows required actions for SLS changes</li>
-								<li>• Highlights missing SLS after merges</li>
-								<li>• Links to Perubahan page for details</li>
+						<div class="rounded-md border border-blue-200 bg-blue-50 p-4">
+							<h3 class="mb-2 text-sm font-medium text-blue-900">idsubsls Validation Rules</h3>
+							<ul class="space-y-1 text-xs text-blue-700">
+								<li>• 🔍 Rule 1: No duplicate idsubsls allowed</li>
+								<li>• ❌ Rule 2: No extra idsubsls compared to SIPW</li>
+								<li>• ✅ Rule 3: No missing idsubsls compared to SIPW</li>
+								<li>• ⚠️ Rule 4: No mismatched idsubsls data</li>
+								<li>• All idsubsls must match SIPW reference data</li>
 							</ul>
 						</div>
 					</div>

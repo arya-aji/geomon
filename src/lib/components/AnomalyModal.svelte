@@ -72,7 +72,7 @@
           </div>
         {:else}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {#each anomalies as anomaly, index (anomaly.idsubsls)}
+            {#each anomalies as anomaly, index (anomaly.uniqueId)}
               <div
                 class="p-4 rounded-lg border-2 hover:shadow-lg transition-all duration-200 hover:scale-105 cursor-pointer"
                 class:bg-red-50={anomaly.severity === 'High'}
