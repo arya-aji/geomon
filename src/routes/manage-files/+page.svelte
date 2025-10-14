@@ -393,6 +393,59 @@
 		return new Date(dateString).toLocaleString('id-ID');
 	}
 
+	function isFileUploadedAfterOrOnTargetDate(dateString: string) {
+		const fileDate = new Date(dateString);
+		const targetDate = new Date('2025-10-14');
+		return fileDate >= targetDate;
+	}
+
+	function getKelurahanWithoutGreenCheckmark() {
+		const kelurahanWithoutCheckmark: string[] = [];
+
+		// Get the data source based on current view mode
+		const dataSource = showAllKelurahan ? allKelurahanGroups : groupedFiles;
+
+		Object.entries(dataSource).forEach(([kecamatanName, desaGroups]) => {
+			const desaGroupsTyped = desaGroups as { [key: string]: any[] };
+
+			Object.entries(desaGroupsTyped).forEach(([desaName, desaFiles]) => {
+				let hasGreenCheckmark = false;
+
+				if (desaFiles.length > 0) {
+					// Check if the latest file has green checkmark
+					const latestFile = getLatestFileForDistrict(desaFiles)[0];
+					if (latestFile && isFileUploadedAfterOrOnTargetDate(latestFile.updatedAt)) {
+						hasGreenCheckmark = true;
+					}
+				}
+
+				// If no green checkmark, add to list
+				if (!hasGreenCheckmark) {
+					kelurahanWithoutCheckmark.push(`${desaName}, ${kecamatanName}`);
+				}
+			});
+		});
+
+		return kelurahanWithoutCheckmark;
+	}
+
+	function generateKelurahanSummary() {
+		const kelurahanList = getKelurahanWithoutGreenCheckmark();
+
+		if (kelurahanList.length === 0) {
+			return 'Semua kelurahan sudah memiliki file dengan checklist hijau! 🎉';
+		}
+
+		const summaryLines: string[] = [];
+		summaryLines.push('Kelurahan yang belum memiliki checklist hijau:');
+		summaryLines.push(''); // Empty line
+		summaryLines.push(...kelurahanList);
+		summaryLines.push(''); // Empty line
+		summaryLines.push(`Total: ${kelurahanList.length} kelurahan`);
+
+		return summaryLines.join('\n');
+	}
+
 	function getSeverityColor(severity: string) {
 		switch (severity.toLowerCase()) {
 			case 'high':
@@ -481,8 +534,8 @@
 			const completedFiles = operatorData.files.length;
 			const percentage = totalAllocations > 0 ? Math.round((completedFiles / totalAllocations) * 100) : 0;
 
-			// Format: "Nama Operator : X dari Y (Z%)"
-			summaryLines.push(`${operatorName} : ${completedFiles} dari ${totalAllocations} (${percentage}%)`);
+			// Format: "Nama Operator : (X/Y) Z%"
+			summaryLines.push(`${operatorName} : (${completedFiles}/${totalAllocations}) ${percentage}%`);
 		});
 
 		// Add overall statistics at the end
@@ -491,7 +544,7 @@
 		const overallPercentage = totalAllocations > 0 ? Math.round((totalCompleted / totalAllocations) * 100) : 0;
 
 		summaryLines.push(''); // Empty line
-		summaryLines.push(`Total: ${totalCompleted} dari ${totalAllocations} (${overallPercentage}%)`);
+		summaryLines.push(`Total: (${totalCompleted}/${totalAllocations}) ${overallPercentage}%`);
 
 		return summaryLines.join('\n');
 	}
@@ -514,6 +567,32 @@
 			document.execCommand('copy');
 			document.body.removeChild(textArea);
 			alert('Operator summary copied to clipboard!');
+		}
+	}
+
+	async function copyKelurahanSummary() {
+		try {
+			const summary = generateKelurahanSummary();
+			await navigator.clipboard.writeText(summary);
+
+			// Show success feedback
+			const kelurahanList = getKelurahanWithoutGreenCheckmark();
+			const count = kelurahanList.length;
+			alert(`Kelurahan summary copied to clipboard! (${count} kelurahan without green checkmark)`);
+		} catch (err) {
+			console.error('Failed to copy kelurahan summary:', err);
+			// Fallback for browsers that don't support clipboard API
+			const summary = generateKelurahanSummary();
+			const textArea = document.createElement('textarea');
+			textArea.value = summary;
+			document.body.appendChild(textArea);
+			textArea.select();
+			document.execCommand('copy');
+			document.body.removeChild(textArea);
+
+			const kelurahanList = getKelurahanWithoutGreenCheckmark();
+			const count = kelurahanList.length;
+			alert(`Kelurahan summary copied to clipboard! (${count} kelurahan without green checkmark)`);
 		}
 	}
 
@@ -576,6 +655,20 @@
 				<h2 class="text-2xl font-semibold text-gray-900">Manage Saved GeoJSON Files</h2>
 
 				<div class="flex items-center space-x-4">
+					<!-- Copy Kelurahan Summary Button (only show in Area view) -->
+					{#if !groupByOperator}
+						<button
+							on:click={copyKelurahanSummary}
+							class="inline-flex items-center rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+							title="Copy kelurahan without green checkmark to clipboard"
+						>
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+							</svg>
+							Copy Kelurahan Summary
+						</button>
+					{/if}
+
 					<!-- Copy Summary Button (only show in operator view) -->
 					{#if groupByOperator}
 						<button
@@ -752,12 +845,21 @@
 																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
 																		</svg>
 																	</div>
-																	<div>
-																		<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
-																		<p class="text-xs text-gray-500">
-																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																			• Updated: {formatDate(file.updatedAt)}
-																		</p>
+																	<div class="flex items-center space-x-2">
+																		{#if isFileUploadedAfterOrOnTargetDate(file.updatedAt)}
+																			<span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-100" title="Uploaded on or after October 14, 2025">
+																				<svg class="h-3 w-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+																				</svg>
+																			</span>
+																		{/if}
+																		<div>
+																			<h5 class="text-sm font-medium text-gray-900">{file.districtName}</h5>
+																			<p class="text-xs text-gray-500">
+																				File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																				• Updated: {formatDate(file.updatedAt)}
+																			</p>
+																		</div>
 																	</div>
 																</div>
 															</div>
@@ -818,12 +920,21 @@
 																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
 																	</svg>
 																</div>
-																<div>
-																	<h5 class="text-sm font-medium text-gray-900">{desaName}</h5>
-																	<p class="text-xs text-gray-500">
-																		File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																		• Updated: {formatDate(file.updatedAt)}
-																	</p>
+																<div class="flex items-center space-x-2">
+																	{#if isFileUploadedAfterOrOnTargetDate(file.updatedAt)}
+																		<span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-100" title="Uploaded on or after October 14, 2025">
+																			<svg class="h-3 w-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+																			</svg>
+																		</span>
+																	{/if}
+																	<div>
+																		<h5 class="text-sm font-medium text-gray-900">{desaName}</h5>
+																		<p class="text-xs text-gray-500">
+																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
+																			• Updated: {formatDate(file.updatedAt)}
+																		</p>
+																	</div>
 																</div>
 															</div>
 														</div>
