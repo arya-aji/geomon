@@ -9,6 +9,7 @@
 		nama_sls?: string;
 		kd_subsls?: string;
 		nama_wke?: string;
+		muatan_dominan?: number;
 	};
 
 	let sipwData = $state<SIPWItem[]>([]);
@@ -223,6 +224,29 @@
 
 		return numbers;
 	});
+
+	// Mapping for muatan_dominan codes to names
+	function getMuatanDominanName(kode?: number): string {
+		if (!kode) return '-';
+
+		const muatanList: Record<number, string> = {
+			1: 'Permukiman Biasa',
+			2: 'Permukiman Mewah/elite/real estate',
+			3: 'Permukiman Kumuh',
+			4: 'Apartemen/kondominium/flat',
+			5: 'Kos-kosan/kontrakan',
+			6: 'Pesantren/barak/asrama/seminari',
+			7: '(tidak digunakan)',
+			8: 'Pusat perbelanjaan modern/mall/pertokoan/pasar',
+			9: 'Kawasan industri/sentra industri',
+			10: 'Hotel/tempat rekreasi',
+			11: 'Wilayah tidak berpenghuni (hutan/kebun, pulau kosong, danau/waduk/rawa, lahan kosong)',
+			12: 'Perkantoran',
+			13: 'Pelabuhan/Bandara/Terminal Bus/Stasiun'
+		};
+
+		return muatanList[kode] || `Kode ${kode}`;
+	}
 
 	onMount(() => {
 		fetchDistinctValues();
@@ -455,6 +479,11 @@
 								>
 									Wilayah Kerja
 								</th>
+								<th
+									class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+								>
+									Muatan Dominan
+								</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200 bg-white">
@@ -480,6 +509,9 @@
 									</td>
 									<td class="px-6 py-4 text-sm whitespace-nowrap text-gray-600">
 										{item.nama_wke || '-'}
+									</td>
+									<td class="px-6 py-4 text-sm text-gray-600">
+										{getMuatanDominanName(item.muatan_dominan)}
 									</td>
 								</tr>
 							{/each}

@@ -42,7 +42,8 @@ export async function POST({ request }) {
 					nmdesa: sipw.nmdesa,
 					nama_sls: sipw.nama_sls,
 					kd_subsls: sipw.kd_subsls,
-					nama_wke: sipw.nama_wke
+					nama_wke: sipw.nama_wke,
+					muatan_dominan: sipw.muatan_dominan
 				})
 				.from(sipw)
 				.where(conditions.length > 0 ? and(...conditions) : undefined)
