@@ -58,7 +58,7 @@ async function importSIPWData() {
 
 		await new Promise((resolve, reject) => {
 			fs.createReadStream(csvFilePath)
-				.pipe(csv({ separator: ';' }))
+				.pipe(csv({ separator: ',' }))
 				.on('data', (data) => {
 					results.push(data);
 				})
@@ -75,7 +75,7 @@ async function importSIPWData() {
 			try {
 				// Transform CSV data to match database schema
 				const sipwData = {
-					idsubsls: cleanString(row.idsubsls),
+					idsubsls: cleanString(row.id_subsls),
 					idfrs: cleanString(row.idfrs),
 					idsls: cleanString(row.idsls),
 					kdprov: cleanString(row.kdprov),
