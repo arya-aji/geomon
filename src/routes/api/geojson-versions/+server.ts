@@ -32,9 +32,11 @@ export async function GET({ url }: { url: URL }) {
 					createdAt: geojsonVersions.createdAt,
 					originalFilename: processedGeojson.originalFilename,
 					districtCode: processedGeojson.districtCode,
-					districtName: processedGeojson.districtName,
-					kecamatanName: processedGeojson.kecamatanName,
-					kabupatenName: processedGeojson.kabupatenName
+					kdkab: processedGeojson.kdkab,
+					kdkec: processedGeojson.kdkec,
+					kddesa: processedGeojson.kddesa,
+					iddesa: processedGeojson.iddesa,
+					nmdesa: processedGeojson.nmdesa
 				})
 				.from(geojsonVersions)
 				.leftJoin(processedGeojson, eq(geojsonVersions.fileId, processedGeojson.id))
@@ -89,9 +91,11 @@ export async function GET({ url }: { url: URL }) {
 					id: processedGeojson.id,
 					originalFilename: processedGeojson.originalFilename,
 					districtCode: processedGeojson.districtCode,
-					districtName: processedGeojson.districtName,
-					kecamatanName: processedGeojson.kecamatanName,
-					kabupatenName: processedGeojson.kabupatenName,
+					kdkab: processedGeojson.kdkab,
+					kdkec: processedGeojson.kdkec,
+					kddesa: processedGeojson.kddesa,
+					iddesa: processedGeojson.iddesa,
+					nmdesa: processedGeojson.nmdesa,
 					currentVersionId: processedGeojson.currentVersionId,
 					isActive: processedGeojson.isActive,
 					createdAt: processedGeojson.createdAt,

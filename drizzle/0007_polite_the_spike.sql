@@ -1,0 +1,1 @@
+ALTER TABLE "processed_geojson" ADD COLUMN "idkel" varchar(10);

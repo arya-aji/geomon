@@ -1,397 +1,296 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+import JSZip from 'jszip';
 
-	let files: any[] = [];
-	let groupedFiles: any = {};
-	let allKelurahanGroups: any = {};
-	let operatorGroups: any = {};
+	let villages: any[] = [];
+	let groupedByUser: any[] = [];
 	let isLoading = true;
 	let error: string | null = null;
-	let selectedFile: any = null;
-	let showVersions = false;
-	let versions: any[] = [];
-	let revisions: any[] = [];
-	let groupByOperator = false; // Toggle between geographical and operator grouping
-	let showAllKelurahan = false; // Toggle to show all kelurahan including those without files
+	let currentView: 'village' | 'operator' = 'village';
 
-	// Operator allocation data
-	const operatorAllocations = [
-		{ Nama: 'agustina rahmani ulva', 'Alokasi 1': 'Senen', 'Alokasi 2': 'Gelora' },
-		{ Nama: 'Ahmad Naufal', 'Alokasi 1': 'Kartini', 'Alokasi 2': 'Cempaka Putih Timur' },
-		{ Nama: 'Ajrina Shafa Ananda', 'Alokasi 1': 'Kebon Sirih', 'Alokasi 2': 'Cideng' },
-		{ Nama: 'Amara Husna', 'Alokasi 1': 'Kwitang', 'Alokasi 2': 'Cikini' },
-		{ Nama: 'Auliatunnisa', 'Alokasi 1': 'Bungur', 'Alokasi 2': 'Duri Pulo' },
-		{ Nama: 'Ayu susetyaning', 'Alokasi 1': 'Galur', 'Alokasi 2': 'Kebon Melati' },
-		{ Nama: 'Bayu Adi Nugroho', 'Alokasi 1': 'Utan Panjang', 'Alokasi 2': 'Petojo Utara' },
-		{ Nama: 'febry ramadhianti', 'Alokasi 1': 'Kebon Kosong', 'Alokasi 2': 'Kampung Bali' },
-		{ Nama: 'Guntur Gunawan', 'Alokasi 1': 'Kebon Kelapa', 'Alokasi 2': 'Sumur Batu' },
-		{ Nama: 'Khadija Izzati', 'Alokasi 1': 'Kemayoran', 'Alokasi 2': 'Petojo Selatan' },
-		{ Nama: 'Luli huriah', 'Alokasi 1': 'Petamburan', 'Alokasi 2': 'Gondangdia' },
-		{
-			Nama: 'Lusia Puji Astuti',
-			'Alokasi 1': 'Gunung Sahari Selatan',
-			'Alokasi 2': 'Karet Tengsin'
-		},
-		{ Nama: 'Meiriana Hudanti Perdhani', 'Alokasi 1': 'Serdang', 'Alokasi 2': 'Pegangsaan' },
-		{ Nama: 'Muhammad Fadhil Amin', 'Alokasi 1': 'Rawasari', 'Alokasi 2': 'Bendungan Hilir' },
-		{ Nama: 'Novaldi Endrawan', 'Alokasi 1': 'Paseban', 'Alokasi 2': 'Gambir' },
-		{
-			Nama: 'Nurhaliza Laila Arman',
-			'Alokasi 1': 'Cempaka Putih Barat',
-			'Alokasi 2': 'Gunung Sahari Utara'
-		},
-		{ Nama: 'Revina Ananda Hardiyanto', 'Alokasi 1': 'Kampung Rawa', 'Alokasi 2': 'Karang Anyar' },
-		{ Nama: 'Shintia Nikita Zen', 'Alokasi 1': 'Cempaka Baru', 'Alokasi 2': 'Kebon Kacang' },
-		{ Nama: 'Siti Fitriyani', 'Alokasi 1': 'Johar Baru', 'Alokasi 2': 'Kenari' },
-		{ Nama: 'Siti Humaira', 'Alokasi 1': 'Harapan Mulya', 'Alokasi 2': 'Kramat' },
-		{ Nama: 'Siti Nurlenia', 'Alokasi 1': 'Tanah Tinggi', 'Alokasi 2': '' },
-		{ Nama: 'Wafa Nazifah', 'Alokasi 1': 'Pasar Baru', 'Alokasi 2': 'Menteng' },
-		{ Nama: 'Kurnia Hidayati', 'Alokasi 1': 'Mangga Dua Selatan', 'Alokasi 2': '' }
-	];
-
-	// Complete kelurahan structure for Jakarta Pusat
-	const allKelurahanStructure = {
-		'Jakarta Pusat': {
-			'Cempaka Putih': ['Cempaka Putih Barat', 'Cempaka Putih Timur', 'Rawasari'],
-			Gambir: ['Cideng', 'Duri Pulo', 'Gambir', 'Kebon Kelapa', 'Petojo Selatan', 'Petojo Utara'],
-			'Johar Baru': ['Galur', 'Johar Baru', 'Kampung Rawa', 'Tanah Tinggi'],
-			Kemayoran: [
-				'Cempaka Baru',
-				'Gunung Sahari Selatan',
-				'Harapan Mulia',
-				'Kebon Kosong',
-				'Kemayoran',
-				'Serdang',
-				'Sumur Batu',
-				'Utan Panjang'
-			],
-			Menteng: ['Cikini', 'Gondangdia', 'Kebon Sirih', 'Menteng', 'Pegangsaan'],
-			'Sawah Besar': ['Gunung Sahari Utara', 'Kartini', 'Mangga Dua Selatan', 'Pasar Baru'],
-			Senen: ['Bungur', 'Kwitang', 'Kenari', 'Kramat', 'Paseban', 'Senen'],
-			'Tanah Abang': [
-				'Bendungan Hilir',
-				'Gelora',
-				'Karet Tengsin',
-				'Kebon Melati',
-				'Kebon Kacang',
-				'Petamburan'
-			]
-		}
+	// Official village to IDDESA mapping
+	const villageIdMapping: { [key: string]: string } = {
+		"Gelora": "3173010001",
+		"Bendungan Hilir": "3173010002",
+		"Karet Tengsin": "3173010003",
+		"Kebon Melati": "3173010004",
+		"Petamburan": "3173010005",
+		"Kebon Kacang": "3173010006",
+		"Kampung Bali": "3173010007",
+		"Menteng": "3173020001",
+		"Pegangsaan": "3173020002",
+		"Cikini": "3173020003",
+		"Gondangdia": "3173020004",
+		"Kebon Sirih": "3173020005",
+		"Kenari": "3173030001",
+		"Paseban": "3173030002",
+		"Kramat": "3173030003",
+		"Kwitang": "3173030004",
+		"Senen": "3173030005",
+		"Bungur": "3173030006",
+		"Johar Baru": "3173040001",
+		"Kampung Rawa": "3173040002",
+		"Tanah Tinggi": "3173040003",
+		"Galur": "3173040004",
+		"Rawa Sari": "3173050001",
+		"Cempaka Putih Timur": "3173050002",
+		"Cempaka Putih Barat": "3173050003",
+		"Harapan Mulya": "3173060001",
+		"Cempaka Baru": "3173060002",
+		"Sumur Batu": "3173060003",
+		"Serdang": "3173060004",
+		"Utan Panjang": "3173060005",
+		"Kebon Kosong": "3173060006",
+		"Kemayoran": "3173060007",
+		"Gunung Sahari Selatan": "3173060008",
+		"Pasar Baru": "3173070001",
+		"Gunung Sahari Utara": "3173070002",
+		"Kartini": "3173070003",
+		"Karang Anyar": "3173070004",
+		"Mangga Dua Selatan": "3173070005",
+		"Cideng": "3173080001",
+		"Petojo Selatan": "3173080002",
+		"Gambir": "3173080003",
+		"Kebon Kelapa": "3173080004",
+		"Petojo Utara": "3173080005",
+		"Duri Pulo": "3173080006"
 	};
 
-	function groupFilesByKecamatanAndDesa(filesList: any[]) {
-		const grouped: any = {};
+	// User mapping JSON data
+	const userMapping: { [key: string]: string[] } = {
+		"Senen": ["agustina rahmani ulva"],
+		"Gelora": ["agustina rahmani ulva"],
+		"Kartini": ["Ahmad Naufal"],
+		"Cempaka Putih Timur": ["Ahmad Naufal"],
+		"Kebon Sirih": ["Ajrina Shafa Ananda"],
+		"Cideng": ["Ajrina Shafa Ananda"],
+		"Kwitang": ["Amara Husna"],
+		"Cikini": ["Amara Husna"],
+		"Bungur": ["Auliatunnisa"],
+		"Duri Pulo": ["Auliatunnisa"],
+		"Galur": ["Ayu susetyaning"],
+		"Kebon Melati": ["Ayu susetyaning"],
+		"Utan Panjang": ["Bayu Adi Nugroho"],
+		"Petojo Utara": ["Bayu Adi Nugroho"],
+		"Kebon Kosong": ["febry ramadhianti"],
+		"Kampung Bali": ["febry ramadhianti"],
+		"Kebon Kelapa": ["Guntur Gunawan"],
+		"Sumur Batu": ["Guntur Gunawan"],
+		"Kemayoran": ["Khadija Izzati"],
+		"Petojo Selatan": ["Khadija Izzati"],
+		"Petamburan": ["Luli huriah"],
+		"Gondangdia": ["Luli huriah"],
+		"Gunung Sahari Selatan": ["Lusia Puji Astuti"],
+		"Karet Tengsin": ["Lusia Puji Astuti"],
+		"Serdang": ["Meiriana Hudanti Perdhani"],
+		"Pegangsaan": ["Meiriana Hudanti Perdhani"],
+		"Rawasari": ["Muhammad Fadhil Amin"],
+		"Bendungan Hilir": ["Muhammad Fadhil Amin"],
+		"Paseban": ["Novaldi Endrawan"],
+		"Gambir": ["Novaldi Endrawan"],
+		"Cempaka Putih Barat": ["Nurhaliza Laila Arman"],
+		"Gunung Sahari Utara": ["Nurhaliza Laila Arman"],
+		"Kampung Rawa": ["Revina Ananda Hardiyanto"],
+		"Karang Anyar": ["Revina Ananda Hardiyanto"],
+		"Cempaka Baru": ["Shintia Nikita Zen"],
+		"Kebon Kacang": ["Shintia Nikita Zen"],
+		"Johar Baru": ["Siti Fitriyani"],
+		"Kenari": ["Siti Fitriyani"],
+		"Harapan Mulya": ["Siti Humaira"],
+		"Kramat": ["Siti Humaira"],
+		"Tanah Tinggi": ["Siti Nurlenia"],
+		"Pasar Baru": ["Wafa Nazifah"],
+		"Menteng": ["Wafa Nazifah"],
+		"Mangga Dua Selatan": ["Kurnia Hidayati"]
+	};
 
-		filesList.forEach((file) => {
-			const kecamatanName = file.kecamatanName || 'Unknown Kecamatan';
-			let desaName = file.districtName;
+	// Function to get assigned users for a village (case-insensitive)
+	function getAssignedUsers(villageName: string): string[] {
+		// Try exact match first
+		if (userMapping[villageName]) {
+			return userMapping[villageName];
+		}
 
-			// If districtName is missing, try to extract from filename
-			if (!desaName && file.originalFilename) {
-				// Try to match common district names from filename
-				const districtNames = [
-					'Kwitang',
-					'Bungur',
-					'Cempaka Putih Timur',
-					'Cideng',
-					'Cikini',
-					'Duri Pulo',
-					'Kebon Melati',
-					'Utan Panjang',
-					'Petojo Utara',
-					'Kebon Kosong',
-					'Kampung Bali',
-					'Kebon Kelapa',
-					'Sumur Batu',
-					'Kemayoran',
-					'Petojo Selatan',
-					'Petamburan',
-					'Gondangdia',
-					'Gunung Sahari Selatan',
-					'Karet Tengsin',
-					'Serdang',
-					'Pegangsaan',
-					'Rawasari',
-					'Bendungan Hilir',
-					'Paseban',
-					'Gambir',
-					'Cempaka Putih Barat',
-					'Gunung Sahari Utara',
-					'Kampung Rawa',
-					'Karang Anyar',
-					'Cempaka Baru',
-					'Kebon Kacang',
-					'Johar Baru',
-					'Kenari',
-					'Harapan Mulya',
-					'Kramat',
-					'Tanah Tinggi',
-					'Pasar Baru',
-					'Menteng',
-					'Mangga Dua Selatan'
-				];
-
-				for (const district of districtNames) {
-					if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
-						desaName = district;
-						break;
-					}
-				}
+		// Try case-insensitive match
+		const upperCaseName = villageName.toUpperCase();
+		for (const [key, users] of Object.entries(userMapping)) {
+			if (key.toUpperCase() === upperCaseName) {
+				return users;
 			}
+		}
 
-			// If still no districtName found, mark as Unknown
-			if (!desaName) {
-				desaName = 'Unknown Desa';
-				console.log(
-					'File missing districtName and could not extract from filename:',
-					file.originalFilename,
-					file
-				);
-			}
-
-			if (!grouped[kecamatanName]) {
-				grouped[kecamatanName] = {};
-			}
-
-			if (!grouped[kecamatanName][desaName]) {
-				grouped[kecamatanName][desaName] = [];
-			}
-
-			grouped[kecamatanName][desaName].push(file);
-		});
-
-		return grouped;
+		return ['No user assigned'];
 	}
 
-	function groupFilesByOperator(filesList: any[]) {
-		const grouped: any = {};
-
-		// Initialize operator groups with allocations
-		operatorAllocations.forEach((operator) => {
-			const operatorName = operator.Nama;
-			grouped[operatorName] = {
-				allocations: [],
-				files: []
-			};
-
-			// Add allocation areas
-			if (operator['Alokasi 1']) {
-				grouped[operatorName].allocations.push(operator['Alokasi 1']);
-			}
-			if (operator['Alokasi 2']) {
-				grouped[operatorName].allocations.push(operator['Alokasi 2']);
-			}
-		});
-
-		// Match files to operators based on districtName (case insensitive)
-		filesList.forEach((file) => {
-			let districtName = file.districtName;
-
-			// If districtName is missing, try to extract from filename (same logic as above)
-			if (!districtName && file.originalFilename) {
-				const districtNames = [
-					'Kwitang',
-					'Bungur',
-					'Cempaka Putih Timur',
-					'Cideng',
-					'Cikini',
-					'Duri Pulo',
-					'Kebon Melati',
-					'Utan Panjang',
-					'Petojo Utara',
-					'Kebon Kosong',
-					'Kampung Bali',
-					'Kebon Kelapa',
-					'Sumur Batu',
-					'Kemayoran',
-					'Petojo Selatan',
-					'Petamburan',
-					'Gondangdia',
-					'Gunung Sahari Selatan',
-					'Karet Tengsin',
-					'Serdang',
-					'Pegangsaan',
-					'Rawasari',
-					'Bendungan Hilir',
-					'Paseban',
-					'Gambir',
-					'Cempaka Putih Barat',
-					'Gunung Sahari Utara',
-					'Kampung Rawa',
-					'Karang Anyar',
-					'Cempaka Baru',
-					'Kebon Kacang',
-					'Johar Baru',
-					'Kenari',
-					'Harapan Mulya',
-					'Kramat',
-					'Tanah Tinggi',
-					'Pasar Baru',
-					'Menteng',
-					'Mangga Dua Selatan'
-				];
-
-				for (const district of districtNames) {
-					if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
-						districtName = district;
-						break;
-					}
-				}
-			}
-
-			// Find which operator this file belongs to
-			operatorAllocations.forEach((operator) => {
-				const operatorName = operator.Nama;
-				const allocations = [operator['Alokasi 1'], operator['Alokasi 2']].filter(Boolean);
-
-				// Check if file's district name matches any of operator's allocations (case insensitive)
-				const match = allocations.some((allocation) => {
-					if (!allocation || !districtName) return false;
-					return allocation.toLowerCase() === districtName.toLowerCase();
-				});
-
-				if (match) {
-					grouped[operatorName].files.push(file);
-				}
-			});
-		});
-
-		// Remove duplicates by district name - keep the most recent file (highest version or latest update)
-		Object.keys(grouped).forEach((operatorName) => {
-			const filesByDistrict: { [key: string]: any[] } = {};
-
-			// Group files by district name
-			grouped[operatorName].files.forEach((file: any) => {
-				let districtKey = file.districtName;
-
-				// If districtName is missing, try to extract from filename (same logic as above)
-				if (!districtKey && file.originalFilename) {
-					const districtNames = [
-						'Kwitang',
-						'Bungur',
-						'Cempaka Putih Timur',
-						'Cideng',
-						'Cikini',
-						'Duri Pulo',
-						'Kebon Melati',
-						'Utan Panjang',
-						'Petojo Utara',
-						'Kebon Kosong',
-						'Kampung Bali',
-						'Kebon Kelapa',
-						'Sumur Batu',
-						'Kemayoran',
-						'Petojo Selatan',
-						'Petamburan',
-						'Gondangdia',
-						'Gunung Sahari Selatan',
-						'Karet Tengsin',
-						'Serdang',
-						'Pegangsaan',
-						'Rawasari',
-						'Bendungan Hilir',
-						'Paseban',
-						'Gambir',
-						'Cempaka Putih Barat',
-						'Gunung Sahari Utara',
-						'Kampung Rawa',
-						'Karang Anyar',
-						'Cempaka Baru',
-						'Kebon Kacang',
-						'Johar Baru',
-						'Kenari',
-						'Harapan Mulya',
-						'Kramat',
-						'Tanah Tinggi',
-						'Pasar Baru',
-						'Menteng',
-						'Mangga Dua Selatan'
-					];
-
-					for (const district of districtNames) {
-						if (file.originalFilename.toLowerCase().includes(district.toLowerCase())) {
-							districtKey = district;
-							break;
-						}
-					}
-				}
-
-				if (!districtKey) {
-					districtKey = 'Unknown';
-				}
-
-				if (!filesByDistrict[districtKey]) {
-					filesByDistrict[districtKey] = [];
-				}
-				filesByDistrict[districtKey].push(file);
-			});
-
-			// For each district, keep only the most recent file
-			const uniqueFiles: any[] = [];
-			Object.keys(filesByDistrict).forEach((district) => {
-				const districtFiles = filesByDistrict[district];
-				// Sort by version number first, then by update date, and take the first (most recent)
-				const mostRecentFile = districtFiles.sort((a, b) => {
-					// First sort by currentVersionNumber (higher is better)
-					if (b.currentVersionNumber !== a.currentVersionNumber) {
-						return b.currentVersionNumber - a.currentVersionNumber;
-					}
-					// If versions are equal, sort by update date (more recent is better)
-					return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-				})[0];
-				uniqueFiles.push(mostRecentFile);
-			});
-
-			// Replace the files array with deduplicated files
-			grouped[operatorName].files = uniqueFiles;
-		});
-
-		return grouped;
+	// Function to display assigned users as a formatted string
+	function getAssignedUsersDisplay(villageName: string): string {
+		const users = getAssignedUsers(villageName);
+		return users.join(', ');
 	}
 
-	async function fetchFiles() {
+	// Function to get all expected villages from user mapping
+	function getAllExpectedVillages(): any[] {
+		const expectedVillages: any[] = [];
+
+		Object.entries(villageIdMapping).forEach(([villageName, iddesa]) => {
+			const assignedUsers = getAssignedUsers(villageName);
+			expectedVillages.push({
+				iddesa: iddesa, // Use official IDDESA mapping
+				nmdesa: villageName,
+				kdkab: null,
+				kdkec: null,
+				kddesa: null,
+				fileId: null,
+				originalFilename: null,
+				currentVersionNumber: null,
+				updatedAt: null,
+				userId: null,
+				assignedUsers: assignedUsers,
+				hasFile: false
+			});
+		});
+
+		return expectedVillages.sort((a, b) => a.iddesa.localeCompare(b.iddesa));
+	}
+
+	// Function to merge existing villages with expected ones
+	function mergeAllVillages(existingVillages: any[]): any[] {
+		const expectedVillages = getAllExpectedVillages();
+		const existingMap = new Map();
+
+		// Create map of existing villages by IDDESA (more reliable than name matching)
+		existingVillages.forEach(village => {
+			if (village.iddesa) {
+				existingMap.set(village.iddesa, { ...village, hasFile: true });
+			}
+		});
+
+		// Merge expected villages with existing ones using IDDESA
+		const mergedVillages = expectedVillages.map(expected => {
+			const existing = existingMap.get(expected.iddesa);
+
+			if (existing) {
+				return existing;
+			} else {
+				return expected;
+			}
+		});
+
+		// Sort the final merged list by IDDESA
+		return mergedVillages.sort((a, b) => a.iddesa.localeCompare(b.iddesa));
+	}
+
+	// Function to group villages by assigned users (including missing ones)
+	function groupVillagesByUser(allVillages: any[]): any[] {
+		const userGroups = new Map<string, any[]>();
+
+		allVillages.forEach(village => {
+			const users = village.assignedUsers || ['No user assigned'];
+			const userKey = users.join(', ');
+
+			if (!userGroups.has(userKey)) {
+				userGroups.set(userKey, []);
+			}
+			userGroups.get(userKey).push(village);
+		});
+
+		// Convert to array and sort
+		return Array.from(userGroups.entries())
+			.map(([user, villageList]) => ({
+				user,
+				villages: villageList.sort((a, b) => {
+					// Sort by hasFile (true first), then by IDDESA
+					if (a.hasFile !== b.hasFile) {
+						return b.hasFile - a.hasFile;
+					}
+					// All villages now have IDDESA, so just sort by IDDESA
+					return a.iddesa.localeCompare(b.iddesa);
+				}),
+				count: villageList.length,
+				hasFilesCount: villageList.filter(v => v.hasFile).length,
+				missingCount: villageList.filter(v => !v.hasFile).length
+			}))
+			.sort((a, b) => a.user.localeCompare(b.user));
+	}
+
+	interface Village {
+		iddesa: string;
+		nmdesa: string;
+		kdkab: string;
+		kdkec: string;
+		kddesa: string;
+		fileId: number;
+		originalFilename: string;
+		currentVersionNumber: number;
+		updatedAt: string;
+		userId: string;
+		assignedUsers: string[]; // New field for assigned users
+	}
+
+	async function fetchVillages() {
 		try {
 			const response = await fetch('/api/save-geojson?userId=anonymous');
 			const result = await response.json();
 
 			if (result.success) {
-				files = result.files;
-				groupedFiles = groupFilesByKecamatanAndDesa(files);
-				allKelurahanGroups = groupAllKelurahanWithFiles(files);
-				operatorGroups = groupFilesByOperator(files);
+				// Filter out records without iddesa or nmdesa, and get only the latest version for each iddesa
+				const villageMap = new Map<string, Village>();
+
+				result.files.forEach((file: any) => {
+					if (file.iddesa && file.nmdesa) {
+						const existing = villageMap.get(file.iddesa);
+
+						// If no existing entry or this file is newer/higher version, update
+						if (!existing ||
+							file.currentVersionNumber > existing.currentVersionNumber ||
+							(file.currentVersionNumber === existing.currentVersionNumber &&
+							 new Date(file.updatedAt) > new Date(existing.updatedAt))) {
+
+							villageMap.set(file.iddesa, {
+								iddesa: file.iddesa,
+								nmdesa: file.nmdesa,
+								kdkab: file.kdkab,
+								kdkec: file.kdkec,
+								kddesa: file.kddesa,
+								fileId: file.id,
+								originalFilename: file.originalFilename,
+								currentVersionNumber: file.currentVersionNumber,
+								updatedAt: file.updatedAt,
+								userId: file.userId,
+								assignedUsers: getAssignedUsers(file.nmdesa)
+							});
+						}
+					}
+				});
+
+				// Convert map to array and sort by iddesa
+				const existingVillages = Array.from(villageMap.values()).sort((a, b) => a.iddesa.localeCompare(b.iddesa));
+
+				// Merge with expected villages to include missing ones
+				villages = mergeAllVillages(existingVillages);
+
+				// Group villages by assigned users for operator view (including missing)
+				groupedByUser = groupVillagesByUser(villages);
+
+				console.log('Fetched villages:', existingVillages.length);
+				console.log('Total expected villages:', villages.length);
+				console.log('Villages with files:', villages.filter(v => v.hasFile).length);
+				console.log('Villages without files:', villages.filter(v => !v.hasFile).length);
+				console.log('Grouped by user:', groupedByUser);
 			} else {
 				throw new Error('Failed to fetch files');
 			}
 		} catch (err) {
-			error = 'Failed to load files';
+			error = 'Failed to load village data';
 			console.error('Error fetching files:', err);
 		} finally {
 			isLoading = false;
 		}
 	}
 
-	async function fetchVersions(fileId: number) {
+	async function downloadGeoJson(village: Village) {
 		try {
-			const response = await fetch(`/api/geojson-versions?fileId=${fileId}`);
-			const result = await response.json();
-
-			if (result.success) {
-				selectedFile = result.file;
-				versions = result.versions;
-				revisions = result.revisions;
-				showVersions = true;
-			} else {
-				throw new Error('Failed to fetch versions');
-			}
-		} catch (err) {
-			error = 'Failed to load versions';
-			console.error('Error fetching versions:', err);
-		}
-	}
-
-	async function downloadGeoJson(fileId: number, filename: string) {
-		try {
-			const response = await fetch(`/api/geojson-versions?fileId=${fileId}`);
+			const response = await fetch(`/api/geojson-versions?fileId=${village.fileId}`);
 			const result = await response.json();
 
 			if (result.success && result.versions.length > 0) {
@@ -411,8 +310,9 @@
 					const a = document.createElement('a');
 					a.href = url;
 
-					// Use the original filename or create a new one
-					const downloadFilename = filename.endsWith('.geojson') ? filename : `${filename}.geojson`;
+					// Use the village name in filename
+					const safeVillageName = village.nmdesa.replace(/[^a-zA-Z0-9]/g, '_');
+					const downloadFilename = `${safeVillageName}.geojson`;
 					a.download = downloadFilename;
 
 					// Trigger the download
@@ -423,7 +323,7 @@
 					document.body.removeChild(a);
 					window.URL.revokeObjectURL(url);
 				} else {
-					throw new Error('No GeoJSON data found for this file');
+					throw new Error('No GeoJSON data found for this village');
 				}
 			} else {
 				throw new Error('Failed to fetch file data');
@@ -434,264 +334,205 @@
 		}
 	}
 
-	async function downloadVersionGeoJson(version: any, filename: string) {
-		try {
-			if (version && version.geojsonData) {
-				// Create a Blob with the GeoJSON data
-				const blob = new Blob([JSON.stringify(version.geojsonData, null, 2)], {
-					type: 'application/json'
-				});
-
-				// Create a download link
-				const url = window.URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url;
-
-				// Create filename with version number
-				const baseFilename = filename.replace('.geojson', '');
-				const downloadFilename = `${baseFilename}_v${version.versionNumber}.geojson`;
-				a.download = downloadFilename;
-
-				// Trigger the download
-				document.body.appendChild(a);
-				a.click();
-
-				// Clean up
-				document.body.removeChild(a);
-				window.URL.revokeObjectURL(url);
-			} else {
-				throw new Error('No GeoJSON data found for this version');
-			}
-		} catch (err) {
-			console.error('Error downloading version:', err);
-			alert('Failed to download version. Please try again.');
-		}
-	}
-
 	function formatDate(dateString: string) {
-		return new Date(dateString).toLocaleString('id-ID');
+		const date = new Date(dateString);
+		// Convert to WIB (UTC+7) timezone
+		const wibOffset = 7 * 60; // 7 hours in minutes
+		const localOffset = date.getTimezoneOffset(); // minutes from UTC (negative for WIB)
+		const wibTime = new Date(date.getTime() + (localOffset + wibOffset) * 60 * 1000);
+
+		// Format: DD/MM/YYYY HH:mm:ss (WIB)
+		const day = String(wibTime.getDate()).padStart(2, '0');
+		const month = String(wibTime.getMonth() + 1).padStart(2, '0');
+		const year = wibTime.getFullYear();
+		const hours = String(wibTime.getHours()).padStart(2, '0');
+		const minutes = String(wibTime.getMinutes()).padStart(2, '0');
+		const seconds = String(wibTime.getSeconds()).padStart(2, '0');
+
+		return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 	}
 
-	function isFileUploadedAfterOrOnTargetDate(dateString: string) {
-		const fileDate = new Date(dateString);
-		const targetDate = new Date('2025-10-15');
-		return fileDate >= targetDate;
-	}
+	// Function to generate reference for villages without files
+	function generateMissingVillagesReference() {
+		const missingVillages = villages.filter(v => !v.hasFile);
 
-	function getKelurahanWithoutGreenCheckmark() {
-		const kelurahanWithoutCheckmark: string[] = [];
-
-		// Get the data source based on current view mode
-		const dataSource = showAllKelurahan ? allKelurahanGroups : groupedFiles;
-
-		Object.entries(dataSource).forEach(([kecamatanName, desaGroups]) => {
-			const desaGroupsTyped = desaGroups as { [key: string]: any[] };
-
-			Object.entries(desaGroupsTyped).forEach(([desaName, desaFiles]) => {
-				let hasGreenCheckmark = false;
-
-				if (desaFiles.length > 0) {
-					// Check if the latest file has green checkmark
-					const latestFile = getLatestFileForDistrict(desaFiles)[0];
-					if (latestFile && isFileUploadedAfterOrOnTargetDate(latestFile.updatedAt)) {
-						hasGreenCheckmark = true;
-					}
+		const referenceData = {
+			generated_at: new Date().toISOString(),
+			total_missing: missingVillages.length,
+			villages: missingVillages.map(village => ({
+				iddesa: village.iddesa,
+				nmdesa: village.nmdesa,
+				assigned_users: village.assignedUsers,
+				suggested_filename: `${village.nmdesa.toLowerCase().replace(/\s+/g, '_')}.geojson`,
+				geojson_template: {
+					type: "FeatureCollection",
+					features: [
+						{
+							type: "Feature",
+							properties: {
+								id_desa: village.iddesa,
+								nm_desa: village.nmdesa,
+								kd_kab: "3173", // Jakarta Pusat
+								kd_kec: village.iddesa.substring(4, 7), // Extract kecamatan code
+								kd_desa: village.iddesa.substring(7, 10) // Extract desa code
+							},
+							geometry: {
+								type: "Polygon",
+								coordinates: [
+									[
+										// Add coordinates here
+									]
+								]
+							}
+						}
+					]
 				}
+			})).sort((a, b) => a.iddesa.localeCompare(b.iddesa))
+		};
 
-				// If no green checkmark, add to list
-				if (!hasGreenCheckmark) {
-					kelurahanWithoutCheckmark.push(`${desaName}, ${kecamatanName}`);
+		return referenceData;
+	}
+
+	// Function to download missing villages reference
+	function downloadMissingVillagesReference() {
+		const referenceData = generateMissingVillagesReference();
+
+		// Create JSON content
+		const jsonContent = JSON.stringify(referenceData, null, 2);
+
+		// Create Blob
+		const blob = new Blob([jsonContent], { type: 'application/json' });
+
+		// Create download link
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `missing_villages_reference_${new Date().toISOString().split('T')[0]}.json`;
+
+		// Trigger download
+		document.body.appendChild(a);
+		a.click();
+
+		// Clean up
+		document.body.removeChild(a);
+		window.URL.revokeObjectURL(url);
+	}
+
+	// Function to download all GeoJSON files in ZIP format
+	async function downloadAllGeoJsonInZip() {
+		try {
+			const villagesWithFiles = villages.filter(v => v.hasFile);
+
+			if (villagesWithFiles.length === 0) {
+				alert('No files available to download');
+				return;
+			}
+
+			// Create a new ZIP file
+			const zip = new JSZip();
+
+			// Add a README file with information
+			const readmeContent = `GEOMON GeoJSON Files Archive
+Generated: ${new Date().toISOString()}
+
+Total files: ${villagesWithFiles.length}
+Completion rate: ${((villagesWithFiles.length / villages.length) * 100).toFixed(1)}%
+
+Files in this archive:
+${villagesWithFiles.map(v => `- ${v.nmdesa} (${v.iddesa}) - Version ${v.currentVersionNumber}`).join('\n')}
+
+For missing villages, download the missing villages reference from the manage-files page.
+
+© GEOMON - Geospasial Monitoring System
+`;
+
+			zip.file('README.txt', readmeContent);
+
+			// Download each GeoJSON file and add to ZIP
+			const downloadPromises = villagesWithFiles.map(async (village) => {
+				try {
+					const response = await fetch(`/api/geojson-versions?fileId=${village.fileId}`);
+					const result = await response.json();
+
+					if (result.success && result.versions.length > 0) {
+						const currentVersion = result.versions.find((v: any) => v.id === result.file.currentVersionId) || result.versions[0];
+
+						if (currentVersion && currentVersion.geojsonData) {
+							// Create a formatted GeoJSON file
+							const geoJsonContent = {
+								type: "FeatureCollection",
+								generator: "GEOMON - Geospasial Monitoring",
+								timestamp: new Date().toISOString(),
+								village: {
+									iddesa: village.iddesa,
+									nmdesa: village.nmdesa,
+									kdkab: village.kdkab,
+									kdkec: village.kdkec,
+									kddesa: village.kddesa,
+									version: village.currentVersionNumber,
+									updated_at: village.updatedAt,
+									assigned_users: village.assignedUsers
+								},
+								features: currentVersion.geojsonData.features || []
+							};
+
+							// Add to ZIP with safe filename
+							const safeVillageName = village.nmdesa.replace(/[^a-zA-Z0-9]/g, '_');
+							const filename = `${safeVillageName}_${village.iddesa}_v${village.currentVersionNumber}.geojson`;
+							zip.file(filename, JSON.stringify(geoJsonContent, null, 2));
+
+							return { success: true, village: village.nmdesa };
+						}
+					}
+
+					return { success: false, village: village.nmdesa, error: 'No GeoJSON data found' };
+				} catch (error) {
+					console.error(`Error downloading ${village.nmdesa}:`, error);
+					return { success: false, village: village.nmdesa, error: error.message };
 				}
 			});
-		});
 
-		return kelurahanWithoutCheckmark;
-	}
+			// Wait for all downloads to complete
+			const results = await Promise.all(downloadPromises);
 
-	function generateKelurahanSummary() {
-		const kelurahanList = getKelurahanWithoutGreenCheckmark();
+			// Log results
+			console.log('Download results:', results);
+			const successful = results.filter(r => r.success);
+			const failed = results.filter(r => r.success === false);
 
-		if (kelurahanList.length === 0) {
-			return 'Semua kelurahan sudah memiliki file dengan checklist hijau! 🎉';
-		}
-
-		const summaryLines: string[] = [];
-		summaryLines.push('Kelurahan yang belum memiliki checklist hijau:');
-		summaryLines.push(''); // Empty line
-		summaryLines.push(...kelurahanList);
-		summaryLines.push(''); // Empty line
-		summaryLines.push(`Total: ${kelurahanList.length} kelurahan`);
-
-		return summaryLines.join('\n');
-	}
-
-	function getSeverityColor(severity: string) {
-		switch (severity.toLowerCase()) {
-			case 'high':
-				return 'bg-red-100 text-red-800';
-			case 'medium':
-				return 'bg-yellow-100 text-yellow-800';
-			case 'low':
-				return 'bg-blue-100 text-blue-800';
-			default:
-				return 'bg-gray-100 text-gray-800';
-		}
-	}
-
-	function getLatestFileForDistrict(files: any[]) {
-		if (files.length === 0) return [];
-
-		// Sort by version number first, then by update date, and take the first (most recent)
-		const latestFile = files.sort((a, b) => {
-			// First sort by currentVersionNumber (higher is better)
-			if (b.currentVersionNumber !== a.currentVersionNumber) {
-				return b.currentVersionNumber - a.currentVersionNumber;
-			}
-			// If versions are equal, sort by update date (more recent is better)
-			return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-		})[0];
-
-		return [latestFile];
-	}
-
-	function groupAllKelurahanWithFiles(filesList: any[]) {
-		const grouped: any = {};
-
-		// First, create the structure with all kelurahan from allKelurahanStructure
-		Object.entries(allKelurahanStructure['Jakarta Pusat']).forEach(
-			([kecamatanName, kelurahanList]) => {
-				grouped[kecamatanName] = {};
-
-				// Initialize all kelurahan as empty arrays
-				kelurahanList.forEach((kelurahanName) => {
-					grouped[kecamatanName][kelurahanName] = [];
-				});
-			}
-		);
-
-		// Then, populate with actual files using fuzzy matching
-		filesList.forEach((file) => {
-			const kecamatanName = file.kecamatanName;
-			const districtName = file.districtName;
-
-			// Try to find matching kecamatan using case-insensitive comparison
-			let matchedKecamatan = null;
-			for (const structureKecamatan of Object.keys(grouped)) {
-				if (
-					kecamatanName &&
-					structureKecamatan.toLowerCase() === kecamatanName.toLowerCase().trim()
-				) {
-					matchedKecamatan = structureKecamatan;
-					break;
-				}
+			if (failed.length > 0) {
+				console.warn('Failed to download some files:', failed);
 			}
 
-			// Try to find matching kelurahan using case-insensitive comparison
-			if (matchedKecamatan && districtName) {
-				let matchedKelurahan = null;
-				for (const structureKelurahan of Object.keys(grouped[matchedKecamatan])) {
-					if (structureKelurahan.toLowerCase() === districtName.toLowerCase().trim()) {
-						matchedKelurahan = structureKelurahan;
-						break;
-					}
-				}
+			// Generate the ZIP file
+			const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-				// Add file to the correct location
-				if (matchedKelurahan) {
-					grouped[matchedKecamatan][matchedKelurahan].push(file);
-				}
-			}
-		});
+			// Create download link
+			const url = window.URL.createObjectURL(zipBlob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `geomon_geojson_files_${new Date().toISOString().split('T')[0]}.zip`;
 
-		return grouped;
-	}
+			// Trigger download
+			document.body.appendChild(a);
+			a.click();
 
-	function generateOperatorSummary() {
-		const summaryLines: string[] = [];
+			// Clean up
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
 
-		// Sort operators by name alphabetically for consistent output
-		const sortedOperators = Object.keys(operatorGroups).sort((a, b) =>
-			a.toLowerCase().localeCompare(b.toLowerCase())
-		);
+			// Show completion message
+			const message = `Successfully downloaded ${successful.length} GeoJSON files${failed.length > 0 ? ` (${failed.length} failed)` : ''} in ZIP archive.`;
+			console.log(message);
 
-		sortedOperators.forEach((operatorName) => {
-			const operatorData = operatorGroups[operatorName] as any;
-			const totalAllocations = operatorData.allocations.length;
-			const completedFiles = operatorData.files.length;
-			const percentage =
-				totalAllocations > 0 ? Math.round((completedFiles / totalAllocations) * 100) : 0;
-
-			// Format: "Nama Operator : (X/Y) Z%"
-			summaryLines.push(`${operatorName} : (${completedFiles}/${totalAllocations}) ${percentage}%`);
-		});
-
-		// Add overall statistics at the end
-		const totalAllocations = Object.values(operatorGroups).reduce(
-			(sum: number, op: any) => sum + op.allocations.length,
-			0
-		);
-		const totalCompleted = Object.values(operatorGroups).reduce(
-			(sum: number, op: any) => sum + op.files.length,
-			0
-		);
-		const overallPercentage =
-			totalAllocations > 0 ? Math.round((totalCompleted / totalAllocations) * 100) : 0;
-
-		summaryLines.push(''); // Empty line
-		summaryLines.push(`Total: (${totalCompleted}/${totalAllocations}) ${overallPercentage}%`);
-
-		return summaryLines.join('\n');
-	}
-
-	async function copyOperatorSummary() {
-		try {
-			const summary = generateOperatorSummary();
-			await navigator.clipboard.writeText(summary);
-
-			// Show success feedback
-			alert('Operator summary copied to clipboard!');
-		} catch (err) {
-			console.error('Failed to copy summary:', err);
-			// Fallback for browsers that don't support clipboard API
-			const summary = generateOperatorSummary();
-			const textArea = document.createElement('textarea');
-			textArea.value = summary;
-			document.body.appendChild(textArea);
-			textArea.select();
-			document.execCommand('copy');
-			document.body.removeChild(textArea);
-			alert('Operator summary copied to clipboard!');
-		}
-	}
-
-	async function copyKelurahanSummary() {
-		try {
-			const summary = generateKelurahanSummary();
-			await navigator.clipboard.writeText(summary);
-
-			// Show success feedback
-			const kelurahanList = getKelurahanWithoutGreenCheckmark();
-			const count = kelurahanList.length;
-			alert(`Kelurahan summary copied to clipboard! (${count} kelurahan without green checkmark)`);
-		} catch (err) {
-			console.error('Failed to copy kelurahan summary:', err);
-			// Fallback for browsers that don't support clipboard API
-			const summary = generateKelurahanSummary();
-			const textArea = document.createElement('textarea');
-			textArea.value = summary;
-			document.body.appendChild(textArea);
-			textArea.select();
-			document.execCommand('copy');
-			document.body.removeChild(textArea);
-
-			const kelurahanList = getKelurahanWithoutGreenCheckmark();
-			const count = kelurahanList.length;
-			alert(`Kelurahan summary copied to clipboard! (${count} kelurahan without green checkmark)`);
+		} catch (error) {
+			console.error('Error creating ZIP file:', error);
+			alert('Failed to create ZIP file. Please try again.');
 		}
 	}
 
 	onMount(() => {
-		fetchFiles();
+		fetchVillages();
 	});
 </script>
 
@@ -734,7 +575,7 @@
 				</a>
 				<a
 					href="/manage-files"
-					class="border-l border-gray-200 bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
+					class="rounded-r-lg border-l border-gray-200 bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
 				>
 					Manage Files
 				</a>
@@ -746,152 +587,125 @@
 	<div class="mx-auto max-w-7xl">
 		<div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
 			<div class="mb-6 flex items-center justify-between">
-				<h2 class="text-2xl font-semibold text-gray-900">Manage Saved GeoJSON Files</h2>
-
+				<div>
+					<h2 class="text-2xl font-semibold text-gray-900">
+						{currentView === 'village' ? 'Village Files (NMDESA)' : 'Operator View'}
+					</h2>
+					<p class="text-sm text-gray-600">
+						{currentView === 'village'
+							? 'Showing latest version for each village, sorted by IDDESA'
+							: 'Grouped by assigned operators'}
+					</p>
+				</div>
 				<div class="flex items-center space-x-4">
-					<!-- Copy Kelurahan Summary Button (only show in Area view) -->
-					{#if !groupByOperator}
+					<!-- View Toggle Buttons -->
+					<div class="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
 						<button
-							on:click={copyKelurahanSummary}
-							class="inline-flex items-center rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none"
-							title="Copy kelurahan without green checkmark to clipboard"
+							on:click={() => currentView = 'village'}
+							class="rounded-l-lg px-4 py-2 text-sm font-medium transition-colors {currentView === 'village'
+								? 'bg-blue-600 text-white'
+								: 'text-gray-700 hover:bg-gray-50'}"
 						>
-							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-								></path>
-							</svg>
-							Copy Kelurahan Summary
+							Village View
 						</button>
-					{/if}
-
-					<!-- Copy Summary Button (only show in operator view) -->
-					{#if groupByOperator}
 						<button
-							on:click={copyOperatorSummary}
-							class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
-							title="Copy operator summary to clipboard"
+							on:click={() => currentView = 'operator'}
+							class="rounded-r-lg border-l border-gray-200 px-4 py-2 text-sm font-medium transition-colors {currentView === 'operator'
+								? 'bg-blue-600 text-white'
+								: 'text-gray-700 hover:bg-gray-50'}"
 						>
-							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-								></path>
-							</svg>
-							Copy Summary
+							Operator View
 						</button>
-					{/if}
-
-					<!-- Toggle for grouping mode -->
-					<div class="flex items-center space-x-3">
-						<span class="text-sm font-medium text-gray-700">Group by:</span>
-						<div class="relative inline-flex items-center rounded-lg bg-gray-100 p-1">
-							<button
-								on:click={() => (groupByOperator = false)}
-								class="relative rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {groupByOperator
-									? 'text-gray-600 hover:text-gray-800'
-									: 'bg-white text-gray-900 shadow-sm'}"
-							>
-								<svg
-									class="mr-1 inline-block h-4 w-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-									></path>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-									></path>
-								</svg>
-								Area
-							</button>
-							<button
-								on:click={() => (groupByOperator = true)}
-								class="relative rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {groupByOperator
-									? 'bg-white text-gray-900 shadow-sm'
-									: 'text-gray-600 hover:text-gray-800'}"
-							>
-								<svg
-									class="mr-1 inline-block h-4 w-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-									></path>
-								</svg>
-								Operator
-							</button>
-						</div>
 					</div>
-
-					<!-- Show All Kelurahan Toggle (only show in Area view) -->
-					{#if !groupByOperator}
-						<div class="flex items-center space-x-3">
-							<span class="text-sm font-medium text-gray-700">Show:</span>
-							<div class="relative inline-flex items-center rounded-lg bg-gray-100 p-1">
-								<button
-									on:click={() => (showAllKelurahan = false)}
-									class="relative rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {showAllKelurahan
-										? 'text-gray-600 hover:text-gray-800'
-										: 'bg-white text-gray-900 shadow-sm'}"
-								>
-									<svg
-										class="mr-1 inline-block h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
+					<div class="text-sm text-gray-600">
+						{#if currentView === 'village'}
+							{@const completedCount = villages.filter(v => v.hasFile).length}
+							{@const missingCount = villages.filter(v => !v.hasFile).length}
+							<div class="space-y-1">
+								<p>Total: {villages.length} villages</p>
+								<div class="flex space-x-3">
+									<span class="text-green-600">✓ {completedCount} complete</span>
+									<span class="text-red-600">⚠ {missingCount} missing</span>
+								</div>
+								{#if missingCount > 0}
+									<button
+										on:click={downloadMissingVillagesReference}
+										class="mt-2 inline-flex items-center rounded-md bg-orange-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none"
+										title="Download reference for missing villages"
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-										></path>
-									</svg>
-									With Files Only
-								</button>
-								<button
-									on:click={() => (showAllKelurahan = true)}
-									class="relative rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors {showAllKelurahan
-										? 'bg-white text-gray-900 shadow-sm'
-										: 'text-gray-600 hover:text-gray-800'}"
-								>
-									<svg
-										class="mr-1 inline-block h-4 w-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M4 6h16M4 10h16M4 14h16M4 18h16"
-										></path>
-									</svg>
-									All Kelurahan
-								</button>
+										<svg
+											class="mr-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+											></path>
+										</svg>
+										Download Missing Reference
+									</button>
+									{#if completedCount > 0}
+										<button
+											on:click={downloadAllGeoJsonInZip}
+											class="mt-2 ml-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
+											title="Download all GeoJSON files in ZIP format"
+										>
+											<svg
+												class="mr-1 h-3 w-3"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"
+												></path>
+											</svg>
+											Download All ({completedCount})
+										</button>
+									{/if}
+								{/if}
 							</div>
-						</div>
-					{/if}
+						{:else}
+							{@const totalVillagesWithFiles = groupedByUser.reduce((sum, g) => sum + g.hasFilesCount, 0)}
+							{@const totalVillagesMissing = groupedByUser.reduce((sum, g) => sum + g.missingCount, 0)}
+							<div class="space-y-1">
+								<p>Total: {groupedByUser.length} operators</p>
+								<div class="flex space-x-3">
+									<span class="text-green-600">✓ {totalVillagesWithFiles} complete</span>
+									<span class="text-red-600">⚠ {totalVillagesMissing} missing</span>
+								</div>
+								{#if totalVillagesWithFiles > 0}
+									<button
+										on:click={downloadAllGeoJsonInZip}
+										class="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
+										title="Download all GeoJSON files in ZIP format"
+									>
+										<svg
+											class="mr-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"
+											></path>
+										</svg>
+										Download All ({totalVillagesWithFiles})
+									</button>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 
@@ -900,7 +714,7 @@
 					<div
 						class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"
 					></div>
-					<p class="mt-4 text-sm text-gray-600">Loading files...</p>
+					<p class="mt-4 text-sm text-gray-600">Loading village data...</p>
 				</div>
 			{:else if error}
 				<div class="py-12 text-center">
@@ -916,7 +730,7 @@
 					</div>
 					<p class="mt-2 text-sm text-gray-600">Error: {error}</p>
 				</div>
-			{:else if files.length === 0}
+			{:else if villages.length === 0}
 				<div class="py-12 text-center">
 					<div class="mx-auto h-12 w-12 text-gray-400">
 						<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -928,56 +742,104 @@
 							></path>
 						</svg>
 					</div>
-					<p class="mt-2 text-sm text-gray-600">No saved files found</p>
-					<p class="mt-1 text-xs text-gray-500">Upload and save GeoJSON files to see them here</p>
+					<p class="mt-2 text-sm text-gray-600">No village files found</p>
+					<p class="mt-1 text-xs text-gray-500">Upload GeoJSON files with village data to see them here</p>
 				</div>
-			{:else if groupByOperator}
-				<!-- Operator View -->
-				<div class="space-y-6">
-					{#each Object.entries(operatorGroups) as [operatorName, operatorData] (operatorName)}
-						{@const operatorDataTyped = operatorData as any}
-						<div class="rounded-lg border border-gray-200 bg-white">
-							<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-								<div class="flex items-center justify-between">
-									<h3 class="text-lg font-semibold text-gray-900">
-										<svg
-											class="mr-2 inline-block h-5 w-5 text-purple-600"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-											></path>
-										</svg>
-										{operatorName}
-									</h3>
-									<div class="flex items-center space-x-2">
-										<span class="text-sm text-gray-600">
-											{operatorDataTyped.files.length} file{operatorDataTyped.files.length !== 1
-												? 's'
-												: ''} • {operatorDataTyped.allocations.length} area{operatorDataTyped
-												.allocations.length !== 1
-												? 's'
-												: ''}
-										</span>
-									</div>
-								</div>
-							</div>
-							<div class="p-4">
-								<!-- Assigned Areas -->
-								<div class="mb-4">
-									<h4 class="mb-2 text-sm font-medium text-gray-700">Assigned Areas:</h4>
-									<div class="flex flex-wrap gap-2">
-										{#each operatorDataTyped.allocations as allocation}
-											<span
-												class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800"
+			{:else if currentView === 'village'}
+				<!-- Village List -->
+				<div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+					<table class="min-w-full divide-y divide-gray-300">
+						<thead class="bg-gray-50">
+							<tr>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									Status
+								</th>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									IDDESA
+								</th>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									Village Name (NMDESA)
+								</th>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									Region Codes
+								</th>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									File Info
+								</th>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									Updated
+								</th>
+								<th scope="col" class="relative px-6 py-3">
+									<span class="sr-only">Actions</span>
+								</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-gray-200 bg-white">
+							{#each villages as village (village.nmdesa)}
+								<tr class="{village.hasFile ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100'}">
+									<td class="whitespace-nowrap px-6 py-4 text-sm">
+										{#if village.hasFile}
+											<span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+												<svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+													<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+												</svg>
+												Complete
+											</span>
+										{:else}
+											<span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+												<svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+													<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+												</svg>
+												Missing
+											</span>
+										{/if}
+									</td>
+									<td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+										{village.iddesa || '-'}
+									</td>
+									<td class="whitespace-nowrap px-6 py-4">
+										<div class="text-sm font-medium {village.hasFile ? 'text-gray-900' : 'text-red-900'}">{village.nmdesa}</div>
+									</td>
+									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+										{#if village.hasFile}
+											<div class="space-y-1">
+												<div>KDKAB: <span class="font-medium text-gray-900">{village.kdkab}</span></div>
+												<div>KDKEC: <span class="font-medium text-gray-900">{village.kdkec}</span></div>
+												<div>KDDESA: <span class="font-medium text-gray-900">{village.kddesa}</span></div>
+											</div>
+										{:else}
+											<span class="text-red-600">No region codes</span>
+										{/if}
+									</td>
+									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+										{#if village.hasFile}
+											<div class="space-y-1">
+												<div>Version: <span class="font-medium text-gray-900">{village.currentVersionNumber}</span></div>
+												<div>Assigned: <span class="font-medium text-gray-900">{getAssignedUsersDisplay(village.nmdesa)}</span></div>
+											</div>
+										{:else}
+											<div class="space-y-1">
+												<div>Version: <span class="font-medium text-red-900">No file</span></div>
+												<div>Assigned: <span class="font-medium text-gray-900">{getAssignedUsersDisplay(village.nmdesa)}</span></div>
+											</div>
+										{/if}
+									</td>
+									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+										{#if village.hasFile}
+											{formatDate(village.updatedAt)}
+										{:else}
+											<span class="text-red-600">No file uploaded</span>
+										{/if}
+									</td>
+									<td class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+										{#if village.hasFile}
+											<button
+												on:click={() => downloadGeoJson(village)}
+												class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
+												title="Download GeoJSON file"
 											>
 												<svg
-													class="mr-1 h-3 w-3"
+													class="mr-2 h-4 w-4"
 													fill="none"
 													stroke="currentColor"
 													viewBox="0 0 24 24"
@@ -986,230 +848,165 @@
 														stroke-linecap="round"
 														stroke-linejoin="round"
 														stroke-width="2"
-														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+														d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
 													></path>
+												</svg>
+												Download
+											</button>
+										{:else}
+											<button
+												disabled
+												class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
+												title="No file available"
+											>
+												<svg
+													class="mr-2 h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
 													<path
 														stroke-linecap="round"
 														stroke-linejoin="round"
 														stroke-width="2"
-														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+														d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
 													></path>
 												</svg>
-												{allocation}
-											</span>
-										{/each}
-									</div>
-								</div>
-
-								<!-- Files -->
-								<div>
-									<h4 class="mb-3 text-sm font-medium text-gray-700">Files:</h4>
-									{#if operatorDataTyped.files.length === 0}
-										<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
-											<div class="mx-auto h-8 w-8 text-gray-400">
-												<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-													></path>
-												</svg>
-											</div>
-											<p class="mt-2 text-xs text-gray-600">
-												No GeoJSON files uploaded for assigned areas
-											</p>
-										</div>
-									{:else}
-										<div class="space-y-2">
-											{#each operatorDataTyped.files as file (file.id)}
-												<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
-													<div class="flex items-center justify-between">
-														<div class="flex-1">
-															<div class="flex items-center space-x-3">
-																<div
-																	class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100"
-																>
-																	<svg
-																		class="h-4 w-4 text-blue-600"
-																		fill="none"
-																		stroke="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path
-																			stroke-linecap="round"
-																			stroke-linejoin="round"
-																			stroke-width="2"
-																			d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-																		></path>
-																	</svg>
-																</div>
-																<div class="flex items-center space-x-2">
-																	{#if isFileUploadedAfterOrOnTargetDate(file.updatedAt)}
-																		<span
-																			class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100"
-																			title="Uploaded on or after October 15, 2025"
-																		>
-																			<svg
-																				class="h-3 w-3 text-green-600"
-																				fill="none"
-																				stroke="currentColor"
-																				viewBox="0 0 24 24"
-																			>
-																				<path
-																					stroke-linecap="round"
-																					stroke-linejoin="round"
-																					stroke-width="3"
-																					d="M5 13l4 4L19 7"
-																				></path>
-																			</svg>
-																		</span>
-																	{/if}
-																	<div>
-																		<h5 class="text-sm font-medium text-gray-900">
-																			{file.districtName}
-																		</h5>
-																		<p class="text-xs text-gray-500">
-																			File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																			• Updated: {formatDate(file.updatedAt)}
-																		</p>
-																	</div>
-																</div>
-															</div>
-														</div>
-														<div class="flex items-center space-x-2">
-															<button
-																on:click={() => downloadGeoJson(file.id, file.originalFilename)}
-																class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
-																title="Download GeoJSON file"
-															>
-																<svg
-																	class="h-4 w-4"
-																	fill="none"
-																	stroke="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path
-																		stroke-linecap="round"
-																		stroke-linejoin="round"
-																		stroke-width="2"
-																		d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-																	></path>
-																</svg>
-																Download
-															</button>
-															<button
-																on:click={() => fetchVersions(file.id)}
-																class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-															>
-																View Versions
-															</button>
-														</div>
-													</div>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/each}
+												No File
+											</button>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			{:else}
-				<!-- Geographical View -->
+				<!-- Operator View -->
 				<div class="space-y-6">
-					{#each Object.entries(showAllKelurahan ? allKelurahanGroups : groupedFiles) as [kecamatanName, desaGroups] (kecamatanName)}
-						{@const desaGroupsTyped = desaGroups as { [key: string]: any[] }}
-						<div class="rounded-lg border border-gray-200 bg-white">
-							<div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
-								<h3 class="text-lg font-semibold text-gray-900">
-									<svg
-										class="mr-2 inline-block h-5 w-5 text-blue-600"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-										></path>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-										></path>
-									</svg>
-									{kecamatanName}
-								</h3>
+					{#each groupedByUser as group (group.user)}
+						<div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+							<div class="border-b border-gray-200 bg-gray-50 px-6 py-4">
+								<div class="flex items-center justify-between">
+									<div>
+										<h3 class="text-lg font-semibold text-gray-900">{group.user}</h3>
+										<div class="flex items-center space-x-4 text-sm text-gray-600">
+											<p>{group.count} village{group.count > 1 ? 's' : ''} assigned</p>
+											<p class="text-green-600">✓ {group.hasFilesCount} with files</p>
+											{#if group.missingCount > 0}
+												<p class="text-red-600">⚠ {group.missingCount} missing files</p>
+											{/if}
+										</div>
+									</div>
+									<div class="flex space-x-2">
+										{#if group.hasFilesCount > 0}
+											<button
+												on:click={() => {
+													group.villages.filter(v => v.hasFile).forEach(village => downloadGeoJson(village));
+												}}
+												class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+												title="Download all available GeoJSON files for this operator"
+											>
+												<svg
+													class="mr-2 h-4 w-4"
+													fill="none"
+													stroke="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+													></path>
+												</svg>
+												Download All ({group.hasFilesCount})
+											</button>
+										{/if}
+									</div>
+								</div>
 							</div>
-							<div class="space-y-2 p-4">
-								{#each Object.entries(desaGroupsTyped) as [desaName, desaFiles] (desaName)}
-									{#if desaFiles.length > 0}
-										<!-- Kelurahan with files -->
-										{#each getLatestFileForDistrict(desaFiles) as file (file.id)}
-											<div class="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
-												<div class="flex items-center justify-between">
-													<div class="flex-1">
-														<div class="flex items-center space-x-3">
-															<div
-																class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100"
-															>
-																<svg
-																	class="h-4 w-4 text-green-600"
-																	fill="none"
-																	stroke="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path
-																		stroke-linecap="round"
-																		stroke-linejoin="round"
-																		stroke-width="2"
-																		d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-																	></path>
-																</svg>
-															</div>
-															<div class="flex items-center space-x-2">
-																{#if isFileUploadedAfterOrOnTargetDate(file.updatedAt)}
-																	<span
-																		class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100"
-																		title="Uploaded on or after October 15, 2025"
-																	>
-																		<svg
-																			class="h-3 w-3 text-green-600"
-																			fill="none"
-																			stroke="currentColor"
-																			viewBox="0 0 24 24"
-																		>
-																			<path
-																				stroke-linecap="round"
-																				stroke-linejoin="round"
-																				stroke-width="3"
-																				d="M5 13l4 4L19 7"
-																			></path>
-																		</svg>
-																	</span>
-																{/if}
-																<div>
-																	<h5 class="text-sm font-medium text-gray-900">{desaName}</h5>
-																	<p class="text-xs text-gray-500">
-																		File: {file.originalFilename} • Version: {file.currentVersionNumber}
-																		• Updated: {formatDate(file.updatedAt)}
-																	</p>
-																</div>
-															</div>
+							<div class="overflow-hidden">
+								<table class="min-w-full divide-y divide-gray-200">
+									<thead class="bg-gray-50">
+										<tr>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Status
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												IDDESA
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Village Name
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Region Codes
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Version
+											</th>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Updated
+											</th>
+											<th scope="col" class="relative px-6 py-3">
+												<span class="sr-only">Actions</span>
+											</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-gray-200 bg-white">
+										{#each group.villages as village (village.nmdesa)}
+											<tr class="{village.hasFile ? 'hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100'}">
+												<td class="whitespace-nowrap px-6 py-4 text-sm">
+													{#if village.hasFile}
+														<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+															Complete
+														</span>
+													{:else}
+														<span class="inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800">
+															Missing
+														</span>
+													{/if}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+													{village.iddesa || '-'}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-sm {village.hasFile ? 'text-gray-900' : 'text-red-900'}">
+													{village.nmdesa}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+													{#if village.hasFile}
+														<div class="space-y-1">
+															<div>KDKAB: <span class="font-medium text-gray-900">{village.kdkab}</span></div>
+															<div>KDKEC: <span class="font-medium text-gray-900">{village.kdkec}</span></div>
+															<div>KDDESA: <span class="font-medium text-gray-900">{village.kddesa}</span></div>
 														</div>
-													</div>
-													<div class="flex items-center space-x-2">
+													{:else}
+														<span class="text-red-600">No region codes</span>
+													{/if}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+													{#if village.hasFile}
+														{village.currentVersionNumber}
+													{:else}
+														<span class="text-red-600">No file</span>
+													{/if}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+													{#if village.hasFile}
+														{formatDate(village.updatedAt)}
+													{:else}
+														<span class="text-red-600">No file uploaded</span>
+													{/if}
+												</td>
+												<td class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+													{#if village.hasFile}
 														<button
-															on:click={() => downloadGeoJson(file.id, file.originalFilename)}
-															class="rounded-md bg-green-100 px-3 py-1 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
+															on:click={() => downloadGeoJson(village)}
+															class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
 															title="Download GeoJSON file"
 														>
 															<svg
-																class="h-4 w-4"
+																class="mr-2 h-4 w-4"
 																fill="none"
 																stroke="currentColor"
 																viewBox="0 0 24 24"
@@ -1223,27 +1020,14 @@
 															</svg>
 															Download
 														</button>
+													{:else}
 														<button
-															on:click={() => fetchVersions(file.id)}
-															class="rounded-md bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
-														>
-															View Versions
-														</button>
-													</div>
-												</div>
-											</div>
-										{/each}
-									{:else}
-										<!-- Kelurahan without files -->
-										<div class="rounded-lg border border-gray-200 bg-red-50 p-3">
-											<div class="flex items-center justify-between">
-												<div class="flex-1">
-													<div class="flex items-center space-x-3">
-														<div
-															class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100"
+															disabled
+															class="inline-flex items-center rounded-md bg-gray-300 px-3 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
+															title="No file available"
 														>
 															<svg
-																class="h-4 w-4 text-red-600"
+																class="mr-2 h-4 w-4"
 																fill="none"
 																stroke="currentColor"
 																viewBox="0 0 24 24"
@@ -1252,235 +1036,20 @@
 																	stroke-linecap="round"
 																	stroke-linejoin="round"
 																	stroke-width="2"
-																	d="M6 18L18 6M6 6l12 12"
+																	d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
 																></path>
 															</svg>
-														</div>
-														<div>
-															<h5 class="text-sm font-medium text-red-900">{desaName}</h5>
-															<p class="text-xs text-red-600">No GeoJSON file uploaded yet</p>
-														</div>
-													</div>
-												</div>
-												<div class="flex items-center space-x-2">
-													<span
-														class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800"
-													>
-														Pending
-													</span>
-												</div>
-											</div>
-										</div>
-									{/if}
-								{/each}
+															No File
+														</button>
+													{/if}
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
 							</div>
 						</div>
 					{/each}
-				</div>
-			{/if}
-
-			<!-- Version History Modal -->
-			{#if showVersions}
-				<div class="fixed inset-0 z-50 overflow-y-auto">
-					<div class="flex min-h-screen items-center justify-center p-4">
-						<!-- Background overlay -->
-						<div
-							class="bg-opacity-75 fixed inset-0 bg-gray-500 transition-opacity"
-							role="button"
-							tabindex="0"
-							aria-label="Close modal"
-							on:click={() => (showVersions = false)}
-							on:keydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									showVersions = false;
-								}
-							}}
-						></div>
-
-						<!-- Modal panel -->
-						<div
-							class="relative z-10 inline-block w-full max-w-4xl transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all"
-						>
-							<div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-								<div class="mb-4 flex items-center justify-between">
-									<h3 class="text-lg font-medium text-gray-900">
-										Version History: {selectedFile.districtName || selectedFile.districtCode}
-									</h3>
-									<p class="text-sm text-gray-600">
-										{selectedFile.kabupatenName} • {selectedFile.kecamatanName} • Original File: {selectedFile.originalFilename}
-									</p>
-									<button
-										on:click={() => (showVersions = false)}
-										class="rounded-md bg-gray-100 p-2 text-gray-400 hover:bg-gray-200"
-										aria-label="Close version history modal"
-										title="Close"
-									>
-										<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M6 18L18 6M6 6l12 12"
-											></path>
-										</svg>
-									</button>
-								</div>
-
-								<div class="space-y-4">
-									<!-- Versions -->
-									<div>
-										<h4 class="mb-3 text-sm font-medium text-gray-900">Versions</h4>
-										{#if versions.length === 0}
-											<div class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
-												<p class="text-sm text-gray-600">No versions found for this file</p>
-											</div>
-										{:else}
-											<div class="space-y-2">
-												{#each versions as version (version.id)}
-													<div class="rounded-lg border border-gray-200 p-3">
-														<div class="flex items-center justify-between">
-															<div>
-																<div class="flex items-center space-x-2">
-																	<span class="text-sm font-medium text-gray-900"
-																		>Version {version.versionNumber}</span
-																	>
-																	<span
-																		class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800"
-																	>
-																		{version.id === selectedFile.currentVersionId
-																			? 'Current'
-																			: 'Previous'}
-																	</span>
-																</div>
-																<p class="text-xs text-gray-500">
-																	{formatDate(version.createdAt)} • By: {version.createdBy}
-																</p>
-																{#if version.changeNotes}
-																	<p class="mt-1 text-xs text-gray-600">
-																		Notes: {version.changeNotes}
-																	</p>
-																{/if}
-																{#if version.anomalySummary}
-																	<div class="mt-2 flex items-center space-x-4 text-xs">
-																		<span class="font-medium"
-																			>Anomalies: {version.anomalySummary.total}</span
-																		>
-																		{#each Object.entries(version.anomalySummary.bySeverity || {}) as [severity, count]}
-																			<span
-																				class="{getSeverityColor(severity)} rounded-full px-2 py-1"
-																			>
-																				{severity}: {count}
-																			</span>
-																		{/each}
-																	</div>
-																{/if}
-															</div>
-															<div class="flex items-center space-x-2">
-																<button
-																	on:click={() =>
-																		downloadVersionGeoJson(version, selectedFile.originalFilename)}
-																	class="rounded-md bg-green-100 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-200"
-																	title="Download this version"
-																>
-																	<svg
-																		class="h-3 w-3"
-																		fill="none"
-																		stroke="currentColor"
-																		viewBox="0 0 24 24"
-																	>
-																		<path
-																			stroke-linecap="round"
-																			stroke-linejoin="round"
-																			stroke-width="2"
-																			d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-																		></path>
-																	</svg>
-																	Download
-																</button>
-																{#if version.id !== selectedFile.currentVersionId}
-																	<button
-																		on:click={async () => {
-																			if (
-																				confirm(
-																					`Rollback to version ${version.versionNumber}? This will create a new revision.`
-																				)
-																			) {
-																				try {
-																					const response = await fetch('/api/geojson-versions', {
-																						method: 'POST',
-																						headers: { 'Content-Type': 'application/json' },
-																						body: JSON.stringify({
-																							fileId: selectedFile.id,
-																							versionId: version.id
-																						})
-																					});
-																					const result = await response.json();
-																					if (result.success) {
-																						alert(
-																							`Successfully rolled back to version ${version.versionNumber}`
-																						);
-																						await fetchVersions(selectedFile.id);
-																					}
-																				} catch (err) {
-																					alert('Failed to rollback version');
-																				}
-																			}
-																		}}
-																		class="rounded-md bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-200"
-																	>
-																		Rollback
-																	</button>
-																{/if}
-															</div>
-														</div>
-													</div>
-												{/each}
-											</div>
-										{/if}
-									</div>
-
-									<!-- Revisions -->
-									{#if revisions.length > 0}
-										<div>
-											<h4 class="mb-3 text-sm font-medium text-gray-900">Revision History</h4>
-											<div class="space-y-2">
-												{#each revisions as revision (revision.id)}
-													<div class="rounded-lg border border-gray-200 p-3">
-														<div class="flex items-center justify-between">
-															<div>
-																<div class="flex items-center space-x-2">
-																	<span class="text-sm font-medium text-gray-900 capitalize"
-																		>{revision.revisionType}</span
-																	>
-																	<span
-																		class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800"
-																	>
-																		{formatDate(revision.createdAt)}
-																	</span>
-																</div>
-																<p class="text-xs text-gray-500">By: {revision.createdBy}</p>
-																{#if revision.changesSummary}
-																	<div class="mt-1 text-xs text-gray-600">
-																		{#if revision.revisionType === 'rollback'}
-																			Rollback to version {revision.changesSummary
-																				.rollbackToVersion}
-																		{:else}
-																			Anomalies fixed: {revision.changesSummary.anomaliesFixed}
-																		{/if}
-																	</div>
-																{/if}
-															</div>
-														</div>
-													</div>
-												{/each}
-											</div>
-										</div>
-									{/if}
-								</div>
-							</div>
-						</div>
-					</div>
 				</div>
 			{/if}
 		</div>

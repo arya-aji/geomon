@@ -64,10 +64,13 @@ export const processedGeojson = pgTable('processed_geojson', {
 	userId: varchar('user_id', { length: 255 }),
 	originalFilename: varchar('original_filename', { length: 255 }),
 	districtCode: varchar('district_code', { length: 50 }),
-	districtName: varchar('district_name', { length: 200 }),
-	kecamatanName: varchar('kecamatan_name', { length: 200 }),
-	kabupatenName: varchar('kabupaten_name', { length: 200 }),
+	kdkab: varchar('kdkab', { length: 5 }), // First 4 digits from idsubsls
+	kdkec: varchar('kdkec', { length: 5 }), // Next 3 digits from idsubsls
+	kddesa: varchar('kddesa', { length: 5 }), // Next 3 digits from idsubsls
+	iddesa: varchar('iddesa', { length: 10 }), // Concatenation of kdkab + kdkec + kddesa (10 digits)
+	nmdesa: varchar('nmdesa', { length: 100 }), // Village name from GeoJSON
 	currentVersionId: integer('current_version_id'),
+	currentVersionNumber: integer('current_version_number').default(1),
 	isActive: boolean('is_active').default(true),
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()

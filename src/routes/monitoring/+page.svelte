@@ -2418,7 +2418,7 @@
 					<a href="/monitoring" class="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-md">Monitoring</a>
 					<a href="/data-sls" class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Data SLS</a>
 					<a href="/perubahan" class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Perubahan</a>
-					<a href="/manage-files" class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Manage Files</a>
+		<a href="/manage-files" class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Manage Files</a>
 				</nav>
 			</div>
 		</div>

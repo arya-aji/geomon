@@ -1,0 +1,1 @@
+ALTER TABLE "processed_geojson" ADD COLUMN "current_version_number" integer DEFAULT 1;

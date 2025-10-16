@@ -8,15 +8,41 @@ import { eq, and, desc } from 'drizzle-orm';
 const sql = neon(env.DATABASE_URL || '');
 const db = drizzle(sql);
 
+// Function to extract region codes and nmdesa from GeoJSON data (first 10 digits from idsubsls)
+function extractRegionCodesFromGeojson(geojsonData: any): { kdkab: string; kdkec: string; kddesa: string; iddesa: string; nmdesa: string } {
+	try {
+		if (!geojsonData || !geojsonData.features || geojsonData.features.length === 0) {
+			return { kdkab: '', kdkec: '', kddesa: '', iddesa: '', nmdesa: '' };
+		}
+
+		// Get the first feature and extract idsubsls and nmdesa
+		const firstFeature = geojsonData.features[0];
+		const idsubsls = firstFeature?.properties?.idsubsls;
+		const nmdesa = firstFeature?.properties?.nmdesa || '';
+
+		let kdkab = '', kdkec = '', kddesa = '', iddesa = '';
+
+		if (idsubsls && typeof idsubsls === 'string' && idsubsls.length >= 10) {
+			// Extract region codes from idsubsls
+			kdkab = idsubsls.substring(0, 4);    // First 4 digits
+			kdkec = idsubsls.substring(4, 7);    // Next 3 digits
+			kddesa = idsubsls.substring(7, 10);  // Next 3 digits
+			iddesa = idsubsls.substring(0, 10);  // First 10 digits
+		}
+
+		return { kdkab, kdkec, kddesa, iddesa, nmdesa: nmdesa.trim() };
+	} catch (error) {
+		console.error('Error extracting region codes from GeoJSON:', error);
+		return { kdkab: '', kdkec: '', kddesa: '', iddesa: '', nmdesa: '' };
+	}
+}
+
 interface SaveGeojsonRequest {
 	geojsonData: any; // GeoJSON object
 	anomalies: any[]; // Array of anomalies found
 	anomalySummary: any; // Summary statistics
 	originalFilename: string;
 	districtCode: string;
-	districtName?: string;
-	kecamatanName?: string;
-	kabupatenName?: string;
 	userId?: string;
 	changeNotes?: string;
 	revisionType?: 'correction' | 'update' | 'new_data';
@@ -89,15 +115,21 @@ export async function POST({ request }: { request: Request }) {
 		} else {
 			// Create new file record
 			isNewFile = true;
+
+			// Extract region codes from GeoJSON data
+			const regionCodes = extractRegionCodesFromGeojson(body.geojsonData);
+
 			const newFile = await db
 				.insert(processedGeojson)
 				.values({
 					userId: body.userId || 'anonymous',
 					originalFilename: body.originalFilename,
 					districtCode: body.districtCode || 'unknown',
-					districtName: body.districtName || 'unknown',
-					kecamatanName: body.kecamatanName || 'unknown',
-					kabupatenName: body.kabupatenName || 'unknown',
+					kdkab: regionCodes.kdkab || 'unknown',
+					kdkec: regionCodes.kdkec || 'unknown',
+					kddesa: regionCodes.kddesa || 'unknown',
+					iddesa: regionCodes.iddesa || 'unknown',
+					nmdesa: regionCodes.nmdesa || 'unknown',
 					currentVersionId: null, // Will be updated after creating version
 					isActive: true,
 					createdAt: new Date(),
@@ -135,11 +167,13 @@ export async function POST({ request }: { request: Request }) {
 			})
 			.returning();
 
-		// Update file record with current version ID
+		// Update file record with current version ID and version number
 		await db
 			.update(processedGeojson)
 			.set({
-				currentVersionId: newVersion[0].id
+				currentVersionId: newVersion[0].id,
+				currentVersionNumber: versionNumber,
+				updatedAt: new Date()
 			})
 			.where(eq(processedGeojson.id, fileId));
 
@@ -199,13 +233,17 @@ export async function GET({ url }: { url: URL }) {
 				id: processedGeojson.id,
 				originalFilename: processedGeojson.originalFilename,
 				districtCode: processedGeojson.districtCode,
-				districtName: processedGeojson.districtName,
-				kecamatanName: processedGeojson.kecamatanName,
-				kabupatenName: processedGeojson.kabupatenName,
+				kdkab: processedGeojson.kdkab,
+				kdkec: processedGeojson.kdkec,
+				kddesa: processedGeojson.kddesa,
+				iddesa: processedGeojson.iddesa,
+				nmdesa: processedGeojson.nmdesa,
 				isActive: processedGeojson.isActive,
 				createdAt: processedGeojson.createdAt,
 				updatedAt: processedGeojson.updatedAt,
-				currentVersionNumber: geojsonVersions.versionNumber,
+				currentVersionId: processedGeojson.currentVersionId,
+				currentVersionNumber: processedGeojson.currentVersionNumber,
+				versionNumber: geojsonVersions.versionNumber,
 				currentVersionCreatedAt: geojsonVersions.createdAt
 			})
 			.from(processedGeojson)
@@ -220,6 +258,20 @@ export async function GET({ url }: { url: URL }) {
 		}
 
 		const files = await query.orderBy(desc(processedGeojson.updatedAt)).limit(50);
+
+		// Debug logging
+		console.log('API returning files:', files.length);
+		console.log('Sample file data from API:');
+		files.slice(0, 3).forEach((file, index) => {
+			console.log(`API File ${index + 1}:`, {
+				id: file.id,
+				kddesa: file.kddesa,
+				iddesa: file.iddesa,
+				nmdesa: file.nmdesa,
+				updatedAt: file.updatedAt,
+				updatedAtType: typeof file.updatedAt
+			});
+		});
 
 		return json({
 			success: true,

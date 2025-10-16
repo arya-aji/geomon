@@ -1,1 +1,1 @@
-ALTER TABLE "processed_geojson" DROP COLUMN "desa_name";
+ALTER TABLE "processed_geojson" DROP COLUMN IF EXISTS "desa_name";
