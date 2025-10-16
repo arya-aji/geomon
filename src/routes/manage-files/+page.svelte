@@ -145,6 +145,7 @@ import JSZip from 'jszip';
 				currentVersionNumber: null,
 				updatedAt: null,
 				userId: null,
+				anomalyTotal: 0,
 				assignedUsers: assignedUsers,
 				hasFile: false
 			});
@@ -224,7 +225,181 @@ import JSZip from 'jszip';
 		currentVersionNumber: number;
 		updatedAt: string;
 		userId: string;
+		anomalyTotal: number; // Number of anomalies found
 		assignedUsers: string[]; // New field for assigned users
+	}
+
+	// Real-time anomaly checking function (same logic as main page)
+	async function checkAnomaliesForGeoJSON(geoJson: any): Promise<any[]> {
+		const anomalies: any[] = [];
+
+		if (!geoJson || geoJson.type !== 'FeatureCollection') {
+			return anomalies;
+		}
+
+		// Add anomaly function
+		function addAnomaly(anomalyData: any) {
+			const newAnomaly = {
+				...anomalyData,
+				detectedAt: new Date().toLocaleString(),
+				uniqueId: `${anomalyData.idsubsls}_${anomalyData.properties?.anomalyType || 'unknown'}_${Date.now()}`
+			};
+			anomalies.push(newAnomaly);
+		}
+
+		// Helper function to extract coordinates
+		function extractCoordinates(geometry: any): string {
+			try {
+				if (geometry.type === 'Polygon' && geometry.coordinates && geometry.coordinates[0] && geometry.coordinates[0][0]) {
+					const coords = geometry.coordinates[0][0];
+					return `${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}`;
+				} else if (geometry.type === 'MultiPolygon' && geometry.coordinates && geometry.coordinates[0] && geometry.coordinates[0][0] && geometry.coordinates[0][0][0]) {
+					const coords = geometry.coordinates[0][0][0];
+					return `${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}`;
+				}
+				return 'Unknown coordinates';
+			} catch (error) {
+				return 'Error extracting coordinates';
+			}
+		}
+
+		// Rule 1: Check for duplicate idsubsls
+		const uploadedIds = new Set();
+		geoJson.features.forEach((feature: any) => {
+			if (feature.properties && feature.properties.idsubsls) {
+				if (uploadedIds.has(feature.properties.idsubsls)) {
+					addAnomaly({
+						idsubsls: feature.properties.idsubsls,
+						title: `ID Duplikat: ${feature.properties.idsubsls}`,
+						severity: 'High',
+						description: `Duplikasi idsubsls ditemukan di ${feature.properties.nmsls || 'area tidak diketahui'}`,
+						coordinates: extractCoordinates(feature.geometry),
+						properties: {
+							...feature.properties,
+							anomalyType: 'duplicate_idsubsls'
+						}
+					});
+				} else {
+					uploadedIds.add(feature.properties.idsubsls);
+				}
+			}
+		});
+
+		// Rule 2 & 3: Check SLS consistency with SIPW table (simplified version)
+		try {
+			const geoJsonIds = new Set<string>();
+			const featuresById: { [key: string]: any } = {};
+
+			geoJson.features.forEach((feature: any) => {
+				if (feature.properties && feature.properties.idsubsls) {
+					const id = feature.properties.idsubsls.toString();
+					geoJsonIds.add(id);
+					featuresById[id] = feature;
+				}
+			});
+
+			if (geoJsonIds.size > 0) {
+				// Extract district codes for filtering
+				const geoJsonDistricts = new Set<string>();
+				geoJson.features.forEach((feature: any) => {
+					if (feature.properties && feature.properties.idsubsls) {
+						const idsubsls = feature.properties.idsubsls.toString();
+						if (idsubsls.length >= 10) {
+							const districtCode = idsubsls.substring(0, 10);
+							geoJsonDistricts.add(districtCode);
+						}
+					}
+				});
+
+				// Get SIPW data for comparison
+				const sipwResponse = await fetch('/api/sipw-data', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						districts: Array.from(geoJsonDistricts),
+						idsubsls: Array.from(geoJsonIds)
+					}),
+					signal: AbortSignal.timeout(10000)
+				});
+
+				if (sipwResponse.ok) {
+					const sipwData = await sipwResponse.json();
+					if (Array.isArray(sipwData)) {
+						const sipwIds = new Set<string>(sipwData.map((item: any) => item.idsubsls));
+
+						// Find extra IDs (in GeoJSON but not in SIPW)
+						const extraIds = [...geoJsonIds].filter((id) => !sipwIds.has(id));
+						extraIds.forEach((id) => {
+							const feature = featuresById[id];
+							if (feature && feature.properties) {
+								addAnomaly({
+									idsubsls: id,
+									title: 'idsubsls Ekstra di GeoJSON',
+									severity: 'Medium',
+									description: `idsubsls ${id} ditemukan di GeoJSON tapi tidak ada di tabel SIPW`,
+									coordinates: extractCoordinates(feature.geometry),
+									properties: {
+										anomalyType: 'extra_idsubsls',
+										geojsonFeature: feature,
+										...feature.properties
+									}
+								});
+							}
+						});
+					}
+				}
+			}
+		} catch (error) {
+			console.warn('SIPW consistency check failed:', error);
+		}
+
+		// Rule 4: Check for invalid geometries
+		geoJson.features.forEach((feature: any, featureIndex: number) => {
+			if (!feature.geometry) {
+				addAnomaly({
+					idsubsls: feature.properties?.idsubsls || `feature_${featureIndex}`,
+					title: 'Null Geometry Detected',
+					severity: 'High',
+					description: 'Feature has null or undefined geometry',
+					coordinates: 'Unknown'
+				});
+				return;
+			}
+
+			const geometry = feature.geometry;
+			const props = feature.properties;
+
+			if (geometry.type === 'Polygon') {
+				geometry.coordinates.forEach((ring: number[][], ringIndex: number) => {
+					if (ring.length < 4) {
+						addAnomaly({
+							idsubsls: props?.idsubsls || `feature_${featureIndex}`,
+							title: 'Invalid Ring - Too Few Points',
+							severity: 'High',
+							description: `Ring ${ringIndex + 1} has only ${ring.length} points (minimum 4 required)`,
+							coordinates: extractCoordinates(geometry)
+						});
+					}
+
+					// Check if ring is properly closed
+					const first = ring[0];
+					const last = ring[ring.length - 1];
+					if (first[0] !== last[0] || first[1] !== last[1]) {
+						addAnomaly({
+							idsubsls: props?.idsubsls || `feature_${featureIndex}`,
+							title: 'Non-Closed Ring Detected',
+							severity: 'High',
+							description: `Ring ${ringIndex + 1} is not properly closed`,
+							coordinates: extractCoordinates(geometry)
+						});
+					}
+				});
+			}
+		});
+
+		return anomalies;
 	}
 
 	async function fetchVillages() {
@@ -236,7 +411,36 @@ import JSZip from 'jszip';
 				// Filter out records without iddesa or nmdesa, and get only the latest version for each iddesa
 				const villageMap = new Map<string, Village>();
 
-				result.files.forEach((file: any) => {
+				// Fetch anomaly data for each file using real-time checking
+				const filesWithAnomalies = await Promise.all(
+					result.files.map(async (file: any) => {
+						if (file.iddesa && file.nmdesa && file.currentVersionId) {
+							try {
+								// Get the current GeoJSON data for this file
+								const versionResponse = await fetch(`/api/geojson-versions?versionId=${file.currentVersionId}`);
+								const versionResult = await versionResponse.json();
+
+								if (versionResult.success && versionResult.version && versionResult.version.geojsonData) {
+									// Perform real-time anomaly checking on the current GeoJSON data
+									const anomalies = await checkAnomaliesForGeoJSON(versionResult.version.geojsonData);
+
+									return {
+										...file,
+										anomalyTotal: anomalies.length
+									};
+								}
+							} catch (error) {
+								console.warn(`Failed to fetch or check anomalies for file ${file.id}:`, error);
+							}
+						}
+						return {
+							...file,
+							anomalyTotal: 0
+						};
+					})
+				);
+
+				filesWithAnomalies.forEach((file: any) => {
 					if (file.iddesa && file.nmdesa) {
 						const existing = villageMap.get(file.iddesa);
 
@@ -257,6 +461,7 @@ import JSZip from 'jszip';
 								currentVersionNumber: file.currentVersionNumber,
 								updatedAt: file.updatedAt,
 								userId: file.userId,
+								anomalyTotal: file.anomalyTotal || 0,
 								assignedUsers: getAssignedUsers(file.nmdesa)
 							});
 						}
@@ -416,6 +621,117 @@ import JSZip from 'jszip';
 		// Clean up
 		document.body.removeChild(a);
 		window.URL.revokeObjectURL(url);
+	}
+
+	// Function to generate summary of missing villages
+	function generateMissingVillagesSummary(): string {
+		const missingVillages = villages.filter(v => !v.hasFile);
+
+		if (missingVillages.length === 0) {
+			return "🎉 All villages have files uploaded!";
+		}
+
+		// Group by assigned users
+		const groupedByUser = new Map<string, any[]>();
+
+		missingVillages.forEach(village => {
+			const userKey = village.assignedUsers.join(', ');
+			if (!groupedByUser.has(userKey)) {
+				groupedByUser.set(userKey, []);
+			}
+			groupedByUser.get(userKey).push(village);
+		});
+
+		// Generate summary text
+		let summary = `📊 GEOMON - Missing Files Summary\n`;
+		summary += `Generated: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })} WIB\n`;
+		summary += `Total villages missing: ${missingVillages.length}/${villages.length} (${((missingVillages.length / villages.length) * 100).toFixed(1)}%)\n\n`;
+
+		// Add summary by user
+		summary += `📋 Missing by Assigned User:\n`;
+		summary += `${'='.repeat(50)}\n`;
+
+		const sortedUsers = Array.from(groupedByUser.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+		sortedUsers.forEach(([user, userVillages], index) => {
+			summary += `\n${index + 1}. ${user} (${userVillages.length} village${userVillages.length > 1 ? 's' : ''}):\n`;
+			userVillages
+				.sort((a, b) => a.iddesa.localeCompare(b.iddesa))
+				.forEach(village => {
+					summary += `   • ${village.nmdesa} (${village.iddesa})\n`;
+				});
+		});
+
+		// Add complete list
+		summary += `\n📝 Complete List (Sorted by IDDESA):\n`;
+		summary += `${'='.repeat(50)}\n`;
+		missingVillages
+			.sort((a, b) => a.iddesa.localeCompare(b.iddesa))
+			.forEach((village, index) => {
+				summary += `${index + 1}. ${village.iddesa} - ${village.nmdesa} (${village.assignedUsers.join(', ')})\n`;
+			});
+
+		summary += `\n💡 Action Items:\n`;
+		summary += `- Contact assigned users for file upload\n`;
+		summary += `- Provide template files if needed\n`;
+		summary += `- Set deadlines for completion\n`;
+		summary += `- Monitor progress regularly\n`;
+
+		return summary;
+	}
+
+	// Function to copy missing villages summary to clipboard
+	async function copyMissingVillagesSummary() {
+		try {
+			const summary = generateMissingVillagesSummary();
+
+			// Use modern clipboard API if available
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(summary);
+			} else {
+				// Fallback for older browsers
+				const textArea = document.createElement('textarea');
+				textArea.value = summary;
+				textArea.style.position = 'fixed';
+				textArea.style.left = '-999999px';
+				textArea.style.top = '-999999px';
+				document.body.appendChild(textArea);
+				textArea.focus();
+				textArea.select();
+
+				const result = document.execCommand('copy');
+				document.body.removeChild(textArea);
+
+				if (!result) {
+					throw new Error('Failed to copy to clipboard');
+				}
+			}
+
+			// Show success message
+			const missingCount = villages.filter(v => !v.hasFile).length;
+			alert(`✅ Summary of ${missingCount} missing villages copied to clipboard!\n\nYou can now paste it in your preferred application.`);
+
+		} catch (error) {
+			console.error('Error copying to clipboard:', error);
+
+			// Fallback: show the summary in a modal/popup
+			const summary = generateMissingVillagesSummary();
+
+			// Create a simple modal with the text
+			const modal = document.createElement('div');
+			modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+			modal.innerHTML = `
+				<div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
+					<h3 class="text-lg font-semibold mb-4">Missing Villages Summary</h3>
+					<p class="text-sm text-gray-600 mb-4">Clipboard access denied. Copy the text below manually:</p>
+					<textarea class="w-full h-64 p-3 border border-gray-300 rounded-md font-mono text-xs" readonly>${summary}</textarea>
+					<div class="mt-4 flex justify-end">
+						<button onclick="this.closest('.fixed').remove()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Close</button>
+					</div>
+				</div>
+			`;
+			document.body.appendChild(modal);
+		}
 	}
 
 	// Function to download all GeoJSON files in ZIP format
@@ -629,8 +945,28 @@ For missing villages, download the missing villages reference from the manage-fi
 								</div>
 								{#if missingCount > 0}
 									<button
+										on:click={copyMissingVillagesSummary}
+										class="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+										title="Copy summary of missing villages to clipboard"
+									>
+										<svg
+											class="mr-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											></path>
+										</svg>
+										Copy Summary
+									</button>
+									<button
 										on:click={downloadMissingVillagesReference}
-										class="mt-2 inline-flex items-center rounded-md bg-orange-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none"
+										class="mt-2 ml-2 inline-flex items-center rounded-md bg-orange-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none"
 										title="Download reference for missing villages"
 									>
 										<svg
@@ -681,10 +1017,32 @@ For missing villages, download the missing villages reference from the manage-fi
 									<span class="text-green-600">✓ {totalVillagesWithFiles} complete</span>
 									<span class="text-red-600">⚠ {totalVillagesMissing} missing</span>
 								</div>
+								{#if totalVillagesMissing > 0}
+									<button
+										on:click={copyMissingVillagesSummary}
+										class="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
+										title="Copy summary of missing villages to clipboard"
+									>
+										<svg
+											class="mr-1 h-3 w-3"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											></path>
+										</svg>
+										Copy Summary
+									</button>
+								{/if}
 								{#if totalVillagesWithFiles > 0}
 									<button
 										on:click={downloadAllGeoJsonInZip}
-										class="mt-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
+										class="mt-2 {totalVillagesMissing > 0 ? 'ml-2' : ''} inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
 										title="Download all GeoJSON files in ZIP format"
 									>
 										<svg
@@ -761,7 +1119,7 @@ For missing villages, download the missing villages reference from the manage-fi
 									Village Name (NMDESA)
 								</th>
 								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-									Region Codes
+									Anomaly Number
 								</th>
 								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
 									File Info
@@ -802,13 +1160,18 @@ For missing villages, download the missing villages reference from the manage-fi
 									</td>
 									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
 										{#if village.hasFile}
-											<div class="space-y-1">
-												<div>KDKAB: <span class="font-medium text-gray-900">{village.kdkab}</span></div>
-												<div>KDKEC: <span class="font-medium text-gray-900">{village.kdkec}</span></div>
-												<div>KDDESA: <span class="font-medium text-gray-900">{village.kddesa}</span></div>
+											<div class="text-center">
+												<span class="inline-flex items-center rounded-full {village.anomalyTotal > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'} px-2.5 py-0.5 text-xs font-medium">
+													{village.anomalyTotal}
+												</span>
+												{#if village.anomalyTotal > 0}
+													<div class="text-xs text-gray-500 mt-1">anomalies</div>
+												{:else}
+													<div class="text-xs text-green-600 mt-1">clean</div>
+												{/if}
 											</div>
 										{:else}
-											<span class="text-red-600">No region codes</span>
+											<span class="text-red-600">No data</span>
 										{/if}
 									</td>
 									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
@@ -940,7 +1303,7 @@ For missing villages, download the missing villages reference from the manage-fi
 												Village Name
 											</th>
 											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-												Region Codes
+												Anomaly Number
 											</th>
 											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
 												Version
@@ -975,13 +1338,18 @@ For missing villages, download the missing villages reference from the manage-fi
 												</td>
 												<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
 													{#if village.hasFile}
-														<div class="space-y-1">
-															<div>KDKAB: <span class="font-medium text-gray-900">{village.kdkab}</span></div>
-															<div>KDKEC: <span class="font-medium text-gray-900">{village.kdkec}</span></div>
-															<div>KDDESA: <span class="font-medium text-gray-900">{village.kddesa}</span></div>
+														<div class="text-center">
+															<span class="inline-flex items-center rounded-full {village.anomalyTotal > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'} px-2 py-0.5 text-xs font-medium">
+																{village.anomalyTotal}
+															</span>
+															{#if village.anomalyTotal > 0}
+																<div class="text-xs text-gray-500 mt-1">anomalies</div>
+															{:else}
+																<div class="text-xs text-green-600 mt-1">clean</div>
+															{/if}
 														</div>
 													{:else}
-														<span class="text-red-600">No region codes</span>
+														<span class="text-red-600">No data</span>
 													{/if}
 												</td>
 												<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
