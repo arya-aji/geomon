@@ -907,7 +907,7 @@ For missing villages, download the missing villages reference from the manage-fi
 				<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
 					<div>
 						<h2 class="text-2xl font-semibold text-gray-900">
-							{currentView === 'village' ? 'Village Files (NMDESA)' : 'Operator View'}
+							{currentView === 'village' ? 'Nama Kelurahan' : 'Operator View'}
 						</h2>
 						<p class="text-sm text-gray-600">
 							{currentView === 'village'
@@ -1140,7 +1140,7 @@ For missing villages, download the missing villages reference from the manage-fi
 									IDDESA
 								</th>
 								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-									Village Name (NMDESA)
+									Nama Kelurahan
 								</th>
 								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
 									Anomaly Number
