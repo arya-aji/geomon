@@ -902,169 +902,193 @@ For missing villages, download the missing villages reference from the manage-fi
 	<!-- Main Content -->
 	<div class="mx-auto max-w-7xl">
 		<div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-			<div class="mb-6 flex items-center justify-between">
-				<div>
-					<h2 class="text-2xl font-semibold text-gray-900">
-						{currentView === 'village' ? 'Village Files (NMDESA)' : 'Operator View'}
-					</h2>
-					<p class="text-sm text-gray-600">
-						{currentView === 'village'
-							? 'Showing latest version for each village, sorted by IDDESA'
-							: 'Grouped by assigned operators'}
-					</p>
-				</div>
-				<div class="flex items-center space-x-4">
-					<!-- View Toggle Buttons -->
+			<!-- Header Section -->
+			<div class="mb-6">
+				<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+					<div>
+						<h2 class="text-2xl font-semibold text-gray-900">
+							{currentView === 'village' ? 'Village Files (NMDESA)' : 'Operator View'}
+						</h2>
+						<p class="text-sm text-gray-600">
+							{currentView === 'village'
+								? 'Showing latest version for each village, sorted by IDDESA'
+								: 'Grouped by assigned operators'}
+						</p>
+					</div>
+
+					<!-- View Toggle Buttons - Prominently Placed -->
 					<div class="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
 						<button
 							on:click={() => currentView = 'village'}
-							class="rounded-l-lg px-4 py-2 text-sm font-medium transition-colors {currentView === 'village'
+							class="rounded-l-lg px-6 py-2.5 text-sm font-medium transition-colors {currentView === 'village'
 								? 'bg-blue-600 text-white'
 								: 'text-gray-700 hover:bg-gray-50'}"
 						>
-							Village View
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+							</svg>
+							<span class="hidden sm:inline">Village View</span>
+							<span class="sm:hidden">Villages</span>
 						</button>
 						<button
 							on:click={() => currentView = 'operator'}
-							class="rounded-r-lg border-l border-gray-200 px-4 py-2 text-sm font-medium transition-colors {currentView === 'operator'
+							class="rounded-r-lg border-l border-gray-200 px-6 py-2.5 text-sm font-medium transition-colors {currentView === 'operator'
 								? 'bg-blue-600 text-white'
 								: 'text-gray-700 hover:bg-gray-50'}"
 						>
-							Operator View
+							<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+							</svg>
+							<span class="hidden sm:inline">Operator View</span>
+							<span class="sm:hidden">Operators</span>
 						</button>
 					</div>
-					<div class="text-sm text-gray-600">
-						{#if currentView === 'village'}
-							{@const completedCount = villages.filter(v => v.hasFile).length}
-							{@const missingCount = villages.filter(v => !v.hasFile).length}
-							<div class="space-y-1">
-								<p>Total: {villages.length} villages</p>
-								<div class="flex space-x-3">
-									<span class="text-green-600">✓ {completedCount} complete</span>
-									<span class="text-red-600">⚠ {missingCount} missing</span>
+				</div>
+
+				<!-- Statistics Bar -->
+				<div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
+					<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+						<div class="flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-6">
+							{#if currentView === 'village'}
+								{@const completedCount = villages.filter(v => v.hasFile).length}
+								{@const missingCount = villages.filter(v => !v.hasFile).length}
+								<div class="text-center">
+									<div class="text-2xl font-bold text-gray-900">{villages.length}</div>
+									<div class="text-sm text-gray-600">Total Villages</div>
 								</div>
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+										<svg class="mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+											<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+										</svg>
+										{completedCount} Complete
+									</span>
+									<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+										<svg class="mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+											<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+										</svg>
+										{missingCount} Missing
+									</span>
+								</div>
+							{:else}
+								{@const totalVillagesWithFiles = groupedByUser.reduce((sum, g) => sum + g.hasFilesCount, 0)}
+								{@const totalVillagesMissing = groupedByUser.reduce((sum, g) => sum + g.missingCount, 0)}
+								<div class="text-center">
+									<div class="text-2xl font-bold text-gray-900">{groupedByUser.length}</div>
+									<div class="text-sm text-gray-600">Total Operators</div>
+								</div>
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+										<svg class="mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+											<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+										</svg>
+										{totalVillagesWithFiles} Complete
+									</span>
+									<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+										<svg class="mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+											<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+										</svg>
+										{totalVillagesMissing} Missing
+									</span>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Action Buttons Group -->
+						<div class="flex flex-wrap items-center gap-2">
+							{#if currentView === 'village'}
+								{@const completedCount = villages.filter(v => v.hasFile).length}
+								{@const missingCount = villages.filter(v => !v.hasFile).length}
 								{#if missingCount > 0}
 									<button
 										on:click={copyMissingVillagesSummary}
-										class="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
-										title="Copy summary of missing villages to clipboard"
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-sm"
 									>
-										<svg
-											class="mr-1 h-3 w-3"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-											></path>
+										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
 										</svg>
-										Copy Summary
+										<span class="hidden sm:inline">Copy Summary</span>
+										<span class="sm:hidden">Copy</span>
 									</button>
 									<button
 										on:click={downloadMissingVillagesReference}
-										class="mt-2 ml-2 inline-flex items-center rounded-md bg-orange-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-orange-700 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:outline-none"
-										title="Download reference for missing villages"
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors shadow-sm"
 									>
-										<svg
-											class="mr-1 h-3 w-3"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-											></path>
+										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
 										</svg>
-										Download Missing Reference
+										<span class="hidden sm:inline">Missing Reference</span>
+										<span class="sm:hidden">Reference</span>
 									</button>
-									{#if completedCount > 0}
-										<button
-											on:click={downloadAllGeoJsonInZip}
-											class="mt-2 ml-2 inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
-											title="Download all GeoJSON files in ZIP format"
-										>
-											<svg
-												class="mr-1 h-3 w-3"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"
-												></path>
-											</svg>
-											Download All ({completedCount})
-										</button>
-									{/if}
 								{/if}
-							</div>
-						{:else}
-							{@const totalVillagesWithFiles = groupedByUser.reduce((sum, g) => sum + g.hasFilesCount, 0)}
-							{@const totalVillagesMissing = groupedByUser.reduce((sum, g) => sum + g.missingCount, 0)}
-							<div class="space-y-1">
-								<p>Total: {groupedByUser.length} operators</p>
-								<div class="flex space-x-3">
-									<span class="text-green-600">✓ {totalVillagesWithFiles} complete</span>
-									<span class="text-red-600">⚠ {totalVillagesMissing} missing</span>
-								</div>
+								{#if completedCount > 0}
+									<button
+										on:click={downloadAllGeoJsonInZip}
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors shadow-sm"
+									>
+										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"></path>
+										</svg>
+										<span class="hidden sm:inline">Download All ({completedCount})</span>
+										<span class="sm:hidden">Download ({completedCount})</span>
+									</button>
+								{/if}
+							{:else}
+								{@const totalVillagesWithFiles = groupedByUser.reduce((sum, g) => sum + g.hasFilesCount, 0)}
+								{@const totalVillagesMissing = groupedByUser.reduce((sum, g) => sum + g.missingCount, 0)}
 								{#if totalVillagesMissing > 0}
 									<button
 										on:click={copyMissingVillagesSummary}
-										class="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
-										title="Copy summary of missing villages to clipboard"
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-sm"
 									>
-										<svg
-											class="mr-1 h-3 w-3"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-											></path>
+										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
 										</svg>
-										Copy Summary
+										<span class="hidden sm:inline">Copy Summary</span>
+										<span class="sm:hidden">Copy</span>
 									</button>
 								{/if}
 								{#if totalVillagesWithFiles > 0}
 									<button
 										on:click={downloadAllGeoJsonInZip}
-										class="mt-2 {totalVillagesMissing > 0 ? 'ml-2' : ''} inline-flex items-center rounded-md bg-purple-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:outline-none"
-										title="Download all GeoJSON files in ZIP format"
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors shadow-sm"
 									>
-										<svg
-											class="mr-1 h-3 w-3"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"
-											></path>
+										<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88 7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l5 5m5-5l-5 5"></path>
 										</svg>
-										Download All ({totalVillagesWithFiles})
+										<span class="hidden sm:inline">Download All ({totalVillagesWithFiles})</span>
+										<span class="sm:hidden">Download ({totalVillagesWithFiles})</span>
 									</button>
 								{/if}
-							</div>
-						{/if}
+							{/if}
+						</div>
 					</div>
 				</div>
+
+				<!-- Progress Indicator -->
+				{#if currentView === 'village'}
+					{@const completionRate = (villages.filter(v => v.hasFile).length / villages.length) * 100}
+					<div class="mb-4">
+						<div class="flex items-center justify-between mb-2">
+							<span class="text-sm font-medium text-gray-700">Completion Progress</span>
+							<span class="text-sm font-medium text-gray-900">{completionRate.toFixed(1)}%</span>
+						</div>
+						<div class="w-full bg-gray-200 rounded-full h-2">
+							<div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {completionRate}%"></div>
+						</div>
+					</div>
+				{:else}
+					{@const completionRate = (groupedByUser.reduce((sum, g) => sum + g.hasFilesCount, 0) / villages.length) * 100}
+					<div class="mb-4">
+						<div class="flex items-center justify-between mb-2">
+							<span class="text-sm font-medium text-gray-700">Overall Completion Progress</span>
+							<span class="text-sm font-medium text-gray-900">{completionRate.toFixed(1)}%</span>
+						</div>
+						<div class="w-full bg-gray-200 rounded-full h-2">
+							<div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300" style="width: {completionRate}%"></div>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			{#if isLoading}
