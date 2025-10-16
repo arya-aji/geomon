@@ -3,9 +3,105 @@
 	import { browser } from '$app/environment';
 	import AnomalyModal from '$lib/components/AnomalyModal.svelte';
 
-	// Complete Jakarta Pusat structure
+	// User mapping (same as manage files page)
+	const userMapping = {
+		"Senen": ["agustina rahmani ulva"],
+		"Gelora": ["agustina rahmani ulva"],
+		"Kartini": ["Ahmad Naufal"],
+		"Cempaka Putih Timur": ["Ahmad Naufal"],
+		"Kebon Sirih": ["Ajrina Shafa Ananda"],
+		"Cideng": ["Ajrina Shafa Ananda"],
+		"Kwitang": ["Amara Husna"],
+		"Cikini": ["Amara Husna"],
+		"Bungur": ["Auliatunnisa"],
+		"Duri Pulo": ["Auliatunnisa"],
+		"Galur": ["Ayu susetyaning"],
+		"Kebon Melati": ["Ayu susetyaning"],
+		"Utan Panjang": ["Bayu Adi Nugroho"],
+		"Petojo Utara": ["Bayu Adi Nugroho"],
+		"Kebon Kosong": ["febry ramadhianti"],
+		"Kampung Bali": ["febry ramadhianti"],
+		"Kebon Kelapa": ["Guntur Gunawan"],
+		"Sumur Batu": ["Guntur Gunawan"],
+		"Kemayoran": ["Khadija Izzati"],
+		"Petojo Selatan": ["Khadija Izzati"],
+		"Petamburan": ["Luli huriah"],
+		"Gondangdia": ["Luli huriah"],
+		"Gunung Sahari Selatan": ["Lusia Puji Astuti"],
+		"Karet Tengsin": ["Lusia Puji Astuti"],
+		"Serdang": ["Meiriana Hudanti Perdhani"],
+		"Pegangsaan": ["Meiriana Hudanti Perdhani"],
+		"Rawa Sari": ["Muhammad Fadhil Amin"],
+		"Bendungan Hilir": ["Muhammad Fadhil Amin"],
+		"Paseban": ["Novaldi Endrawan"],
+		"Gambir": ["Novaldi Endrawan"],
+		"Cempaka Putih Barat": ["Nurhaliza Laila Arman"],
+		"Gunung Sahari Utara": ["Nurhaliza Laila Arman"],
+		"Kampung Rawa": ["Revina Ananda Hardiyanto"],
+		"Karang Anyar": ["Revina Ananda Hardiyanto"],
+		"Cempaka Baru": ["Shintia Nikita Zen"],
+		"Kebon Kacang": ["Shintia Nikita Zen"],
+		"Johar Baru": ["Siti Fitriyani"],
+		"Kenari": ["Siti Fitriyani"],
+		"Harapan Mulya": ["Siti Humaira"],
+		"Kramat": ["Siti Humaira"],
+		"Tanah Tinggi": ["Siti Nurlenia"],
+		"Pasar Baru": ["Wafa Nazifah"],
+		"Menteng": ["Wafa Nazifah"],
+		"Mangga Dua Selatan": ["Kurnia Hidayati"]
+	};
+
+	// Official village mapping (same as manage files page)
+	const villageIdMapping = {
+		"Gelora": "3173010001",
+		"Bendungan Hilir": "3173010002",
+		"Karet Tengsin": "3173010003",
+		"Kebon Melati": "3173010004",
+		"Petamburan": "3173010005",
+		"Kebon Kacang": "3173010006",
+		"Kampung Bali": "3173010007",
+		"Menteng": "3173020001",
+		"Pegangsaan": "3173020002",
+		"Cikini": "3173020003",
+		"Gondangdia": "3173020004",
+		"Kebon Sirih": "3173020005",
+		"Kenari": "3173030001",
+		"Paseban": "3173030002",
+		"Kramat": "3173030003",
+		"Kwitang": "3173030004",
+		"Senen": "3173030005",
+		"Bungur": "3173030006",
+		"Johar Baru": "3173040001",
+		"Kampung Rawa": "3173040002",
+		"Tanah Tinggi": "3173040003",
+		"Galur": "3173040004",
+		"Rawa Sari": "3173050001",
+		"Cempaka Putih Timur": "3173050002",
+		"Cempaka Putih Barat": "3173050003",
+		"Harapan Mulya": "3173060001",
+		"Cempaka Baru": "3173060002",
+		"Sumur Batu": "3173060003",
+		"Serdang": "3173060004",
+		"Utan Panjang": "3173060005",
+		"Kebon Kosong": "3173060006",
+		"Kemayoran": "3173060007",
+		"Gunung Sahari Selatan": "3173060008",
+		"Pasar Baru": "3173070001",
+		"Gunung Sahari Utara": "3173070002",
+		"Kartini": "3173070003",
+		"Karang Anyar": "3173070004",
+		"Mangga Dua Selatan": "3173070005",
+		"Cideng": "3173080001",
+		"Petojo Selatan": "3173080002",
+		"Gambir": "3173080003",
+		"Kebon Kelapa": "3173080004",
+		"Petojo Utara": "3173080005",
+		"Duri Pulo": "3173080006"
+	};
+
+	// Complete Jakarta Pusat structure (for backward compatibility)
 	const jakartaPusatStructure = {
-		"Cempaka Putih": ["Cempaka Putih Barat", "Cempaka Putih Timur", "Rawasari"],
+		"Cempaka Putih": ["Cempaka Putih Barat", "Cempaka Putih Timur", "Rawa Sari"],
 		"Gambir": ["Cideng", "Duri Pulo", "Gambir", "Kebon Kelapa", "Petojo Selatan", "Petojo Utara"],
 		"Johar Baru": ["Galur", "Johar Baru", "Kampung Rawa", "Tanah Tinggi"],
 		"Kemayoran": ["Cempaka Baru", "Gunung Sahari Selatan", "Harapan Mulia", "Kebon Kosong", "Kemayoran", "Serdang", "Sumur Batu", "Utan Panjang"],
@@ -14,6 +110,18 @@
 		"Senen": ["Bungur", "Kwitang", "Kenari", "Kramat", "Paseban", "Senen"],
 		"Tanah Abang": ["Bendungan Hilir", "Gelora", "Karet Tengsin", "Kebon Melati", "Kebon Kacang", "Petamburan"]
 	};
+
+	// Interface for Village data (same as manage files page)
+	interface Village {
+		iddesa: string | null;
+		nmdesa: string;
+		assignedUsers: string[];
+		hasFile: boolean;
+		fileId?: number;
+		currentVersionNumber?: number;
+		updatedAt?: string;
+		anomalyTotal: number;
+	}
 
 	let map: any;
 	let L: any;
@@ -25,13 +133,196 @@
 	// Anomaly data array - will be populated dynamically
 	let anomalies: any[] = [];
 
-	// State variables for dropdown filtering
+	// State variables for new village-based approach
+	let villages: Village[] = [];
+	let filteredVillages: Village[] = [];
 	let selectedKecamatan: string = '';
 	let selectedKelurahan: string = '';
-	let availableFiles: any[] = [];
 	let selectedFile: any = null;
 	let isLoading = false;
 	let mapContainer: HTMLDivElement;
+	let isDataLoading = false;
+
+	// Helper functions for village-based approach
+	function getAssignedUsers(villageName: string): string[] {
+		if (userMapping[villageName]) {
+			return userMapping[villageName];
+		}
+		const upperCaseName = villageName.toUpperCase();
+		for (const [key, users] of Object.entries(userMapping)) {
+			if (key.toUpperCase() === upperCaseName) {
+				return users;
+			}
+		}
+		return ['No user assigned'];
+	}
+
+	function getAllExpectedVillages(): Village[] {
+		const expectedVillages: Village[] = [];
+
+		Object.entries(villageIdMapping).forEach(([villageName, iddesa]) => {
+			const assignedUsers = getAssignedUsers(villageName);
+			expectedVillages.push({
+				iddesa: iddesa,
+				nmdesa: villageName,
+				assignedUsers: assignedUsers,
+				hasFile: false,
+				anomalyTotal: 0
+			});
+		});
+
+		return expectedVillages.sort((a, b) => a.iddesa!.localeCompare(b.iddesa!));
+	}
+
+	// Real-time anomaly checking function (same as manage files page)
+	async function checkAnomaliesForGeoJSON(geoJson: any): Promise<number> {
+		if (!geoJson || geoJson.type !== 'FeatureCollection') {
+			return 0;
+		}
+
+		console.log('🔍 Checking anomalies for GeoJSON...');
+		let totalAnomalies = 0;
+
+		try {
+			// Clear existing anomalies
+			anomalies = [];
+
+			// Rule 1: Check for duplicate idsubsls
+			await checkDuplicateIdsubsls(geoJson);
+
+			// Rule 2 & 3: Check SLS consistency with SIPW table
+			await checkSIPWConsistency(geoJson);
+
+			// Rule 4: Check for invalid geometries
+			checkInvalidGeometries(geoJson);
+
+			// Rule 5: Check for interior rings
+			checkInteriorRings(geoJson);
+
+			// Rule 6: Check for area discrepancies
+			checkAreaDiscrepancies(geoJson);
+
+			// Rule 7: Check for merged polygon holes (district coverage gaps)
+			checkMergedPolygonHoles(geoJson);
+
+			// Rule 8: Check for single district validation
+			checkSingleDistrict(geoJson);
+
+			// Count total anomalies
+			totalAnomalies = anomalies.length;
+
+			console.log(`✅ Anomaly check completed. Found ${totalAnomalies} anomalies`);
+			return totalAnomalies;
+
+		} catch (error) {
+			console.error('❌ Error checking anomalies:', error);
+			return 0;
+		}
+	}
+
+	async function fetchVillages() {
+		if (isDataLoading) return;
+		isDataLoading = true;
+
+		try {
+			console.log('📊 Fetching villages data...');
+			const response = await fetch('/api/save-geojson?userId=anonymous');
+			const result = await response.json();
+
+			if (!result.success) {
+				console.error('❌ Failed to fetch villages data:', result);
+				return;
+			}
+
+			// Process existing villages
+			const villageMap = new Map<string, Village>();
+			result.files.forEach((file: any) => {
+				if (file.iddesa && file.nmdesa) {
+					const existing = villageMap.get(file.iddesa);
+
+					if (!existing ||
+						file.currentVersionNumber > (existing.currentVersionNumber || 0) ||
+						(file.currentVersionNumber === (existing.currentVersionNumber || 0) &&
+						 new Date(file.updatedAt) > new Date(existing.updatedAt || 0))) {
+
+						const assignedUsers = getAssignedUsers(file.nmdesa);
+						villageMap.set(file.iddesa, {
+							iddesa: file.iddesa,
+							nmdesa: file.nmdesa,
+							hasFile: true,
+							fileId: file.id,
+							currentVersionNumber: file.currentVersionNumber,
+							updatedAt: file.updatedAt,
+							assignedUsers: assignedUsers,
+							anomalyTotal: 0 // Will be updated later
+						});
+					}
+				}
+			});
+
+			// Get all expected villages using official mapping
+			const expectedVillages = getAllExpectedVillages();
+
+			// Merge existing and expected villages
+			const mergedVillages = expectedVillages.map(expected => {
+				const existing = villageMap.get(expected.iddesa!);
+				if (existing) {
+					return existing;
+				} else {
+					return expected;
+				}
+			});
+
+			// Check anomalies for villages with files (in parallel batches)
+			const villagesWithFiles = mergedVillages.filter(v => v.hasFile);
+			console.log(`🔍 Checking anomalies for ${villagesWithFiles.length} villages with files...`);
+
+			// Process in batches to avoid overwhelming the system
+			const batchSize = 5;
+			for (let i = 0; i < villagesWithFiles.length; i += batchSize) {
+				const batch = villagesWithFiles.slice(i, i + batchSize);
+
+				await Promise.all(batch.map(async (village) => {
+					try {
+						const versionResponse = await fetch(`/api/geojson-versions?fileId=${village.fileId}`);
+						const versionResult = await versionResponse.json();
+
+						if (versionResult.success && versionResult.versions.length > 0) {
+							const currentVersion = versionResult.versions.find((v: any) => v.id === versionResult.file.currentVersionId) || versionResult.versions[0];
+
+							if (currentVersion && currentVersion.geojsonData) {
+								const anomalyCount = await checkAnomaliesForGeoJSON(currentVersion.geojsonData);
+								village.anomalyTotal = anomalyCount;
+							}
+						}
+					} catch (error) {
+						console.error(`❌ Error checking anomalies for ${village.nmdesa}:`, error);
+						village.anomalyTotal = 0;
+					}
+				}));
+
+				// Small delay between batches to prevent overwhelming
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+
+			// Sort villages by IDDESA
+			villages = mergedVillages.sort((a, b) => {
+				if (!a.iddesa) return 1;
+				if (!b.iddesa) return -1;
+				return a.iddesa.localeCompare(b.iddesa);
+			});
+
+			// Initialize filtered villages
+			filteredVillages = [...villages];
+
+			console.log(`✅ Villages data loaded successfully. Total: ${villages.length}, With files: ${villages.filter(v => v.hasFile).length}`);
+
+		} catch (error) {
+			console.error('❌ Error fetching villages:', error);
+		} finally {
+			isDataLoading = false;
+		}
+	}
 
 	// Function to add anomaly with improved duplicate checking
 	function addAnomaly(anomalyData: any) {
@@ -313,57 +604,75 @@
 		baseMaps['Street'].addTo(map);
 		L.control.layers(baseMaps).addTo(map);
 
-		// Load available files
-		await loadAvailableFiles();
+		// Load villages data using new approach
+		await fetchVillages();
 	});
 
-	async function loadAvailableFiles() {
-		try {
-			const response = await fetch('/api/save-geojson?userId=anonymous');
-			const result = await response.json();
+	
+	// Reactive filtering based on selected kecamatan/kelurahan
+	$: {
+		if (selectedKecamatan || selectedKelurahan) {
+			filteredVillages = villages.filter(village => {
+				// Get kecamatan for this village based on IDDESA mapping
+				const kecamatanForVillage = getKecamatanForVillage(village.nmdesa);
 
-			if (result.success) {
-				availableFiles = result.files;
-			}
-		} catch (err) {
-			console.error('Error loading files:', err);
+				if (selectedKecamatan && selectedKelurahan) {
+					return kecamatanForVillage === selectedKecamatan && village.nmdesa === selectedKelurahan;
+				} else if (selectedKecamatan) {
+					return kecamatanForVillage === selectedKecamatan;
+				}
+				return false;
+			});
+		} else {
+			filteredVillages = [...villages];
 		}
 	}
 
 	// Get available kelurahan for selected kecamatan
 	$: availableKelurahan = selectedKecamatan ? jakartaPusatStructure[selectedKecamatan] : [];
 
-	// Get files for selected area
-	$: filesForSelectedArea = availableFiles.filter(file => {
-		if (selectedKecamatan && selectedKelurahan) {
-			return file.kecamatanName?.toLowerCase() === selectedKecamatan.toLowerCase() &&
-			       file.districtName?.toLowerCase() === selectedKelurahan.toLowerCase();
-		} else if (selectedKecamatan) {
-			return file.kecamatanName?.toLowerCase() === selectedKecamatan.toLowerCase();
-		}
-		return false;
-	});
-
-	// Get latest file for selected area
-	$: latestFileForArea = filesForSelectedArea.length > 0
-		? filesForSelectedArea.sort((a, b) => {
-			if (b.currentVersionNumber !== a.currentVersionNumber) {
-				return b.currentVersionNumber - a.currentVersionNumber;
+	// Get latest file for selected area (for backward compatibility)
+	$: latestFileForArea = filteredVillages.filter(v => v.hasFile).length > 0
+		? filteredVillages.filter(v => v.hasFile).sort((a, b) => {
+			if ((b.currentVersionNumber || 0) !== (a.currentVersionNumber || 0)) {
+				return (b.currentVersionNumber || 0) - (a.currentVersionNumber || 0);
 			}
-			return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+			return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
 		})[0]
 		: null;
 
+	// Helper function to get kecamatan for a village
+	function getKecamatanForVillage(villageName: string): string {
+		for (const [kecamatan, kelurahanList] of Object.entries(jakartaPusatStructure)) {
+			if (kelurahanList.includes(villageName)) {
+				return kecamatan;
+			}
+		}
+		return '';
+	}
+
 	// Load GeoJSON from saved file
-	async function loadGeoJSONToMap(file: any) {
-		if (!file || !map) {
-			console.log('Cannot load GeoJSON:', { file: !!file, map: !!map });
+	async function loadGeoJSONToMap(village: Village) {
+		console.log('🗺️ loadGeoJSONToMap called with village:', village);
+
+		if (!village || !village.fileId || !map) {
+			console.log('❌ Cannot load GeoJSON - missing data:', {
+				village: !!village,
+				fileId: village?.fileId,
+				map: !!map
+			});
 			return;
 		}
 
-		console.log('Loading GeoJSON for file:', file);
+		console.log('✅ Starting GeoJSON load for village:', {
+			nmdesa: village.nmdesa,
+			iddesa: village.iddesa,
+			fileId: village.fileId,
+			hasFile: village.hasFile
+		});
+
 		isLoading = true;
-		selectedFile = file;
+		selectedFile = { id: village.fileId, originalFilename: `${village.nmdesa}.geojson`, currentVersionNumber: village.currentVersionNumber };
 
 		// Clear existing layers
 		if (geoJSONLayer) {
@@ -372,15 +681,26 @@
 		clearAnomalyMarkers();
 
 		try {
-			// Get file with versions
-			const response = await fetch(`/api/geojson-versions?fileId=${file.id}`);
+			console.log('📡 Fetching geojson-versions API...');
+			const apiUrl = `/api/geojson-versions?fileId=${village.fileId}`;
+			console.log('API URL:', apiUrl);
+
+			const response = await fetch(apiUrl);
+			console.log('📡 API Response status:', response.status);
+
 			const result = await response.json();
+			console.log('📡 API Response result:', result);
 
 			if (result.success && result.versions.length > 0) {
+				console.log('✅ Found versions:', result.versions.length);
+
 				// Find current version
 				const currentVersion = result.versions.find((v: any) => v.id === result.file.currentVersionId) || result.versions[0];
+				console.log('📋 Current version:', currentVersion?.id, 'has geojson:', !!currentVersion?.geojsonData);
 
 				if (currentVersion && currentVersion.geojsonData) {
+					console.log('✅ GeoJSON data found, processing...');
+
 					// Store uploaded GeoJSON for anomaly checking
 					uploadedGeoJSON = currentVersion.geojsonData;
 
@@ -388,7 +708,7 @@
 					anomalies = [];
 
 					// Run anomaly checker on the loaded GeoJSON
-					console.log('Running anomaly checker on loaded GeoJSON...');
+					console.log('🔍 Running anomaly checker on loaded GeoJSON...');
 
 					// Rule 1: Check for duplicate idsubsls
 					await checkDuplicateIdsubsls(uploadedGeoJSON);
@@ -396,9 +716,10 @@
 					// Rule 2 & 3: Check SLS consistency with SIPW table
 					await checkSIPWConsistency(uploadedGeoJSON);
 
-					console.log(`Anomaly checking completed. Found ${anomalies.length} anomalies`);
+					console.log(`✅ Anomaly checking completed. Found ${anomalies.length} anomalies`);
 
 					// Add GeoJSON to map
+					console.log('🗺️ Adding GeoJSON to map...');
 					geoJSONLayer = L.geoJSON(currentVersion.geojsonData, {
 						style: {
 							fillColor: '#3b82f6',
@@ -419,8 +740,11 @@
 						}
 					}).addTo(map);
 
+					console.log('✅ GeoJSON added to map');
+
 					// Fit map to bounds
 					if (geoJSONLayer.getBounds().isValid()) {
+						console.log('📐 Fitting map to bounds...');
 						map.fitBounds(geoJSONLayer.getBounds());
 					}
 
@@ -430,15 +754,21 @@
 
 					// Use detected anomalies if available, otherwise fall back to existing/sample anomalies
 					if (anomalies.length > 0) {
-						console.log('Using newly detected anomalies');
+						console.log('✅ Using newly detected anomalies');
 					} else if (existingAnomalies.length > 0) {
-						console.log('Using existing anomalies from version');
+						console.log('📋 Using existing anomalies from version');
 						anomalies = existingAnomalies;
 					}
+
+					console.log('🎉 GeoJSON loading completed successfully!');
+				} else {
+					console.error('❌ No GeoJSON data found in current version');
 				}
+			} else {
+				console.error('❌ API call failed:', result);
 			}
 		} catch (err) {
-			console.error('Error loading GeoJSON:', err);
+			console.error('❌ Error loading GeoJSON:', err);
 		} finally {
 			isLoading = false;
 		}
@@ -2428,6 +2758,62 @@
 	<div class="flex-1 lg:grid lg:grid-cols-4 lg:gap-6 p-4 lg:p-6">
 		<!-- Left Column (1 column wide) -->
 		<aside class="lg:col-span-1 space-y-6">
+			<!-- Header Section -->
+			<div class="mb-6">
+				<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+					<!-- View Toggle Buttons -->
+					<div class="flex flex-wrap gap-2">
+						<button
+							class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+						>
+							🗺️ Map View
+						</button>
+						<button
+							class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+							on:click={() => window.location.href = '/manage-files'}
+						>
+							📋 Table View
+						</button>
+					</div>
+				</div>
+
+				<!-- Statistics Bar -->
+				<div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+					<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+						<div class="text-center">
+							<div class="text-2xl font-bold">{villages.length}</div>
+							<div class="text-xs opacity-90">Total Villages</div>
+						</div>
+						<div class="text-center">
+							<div class="text-2xl font-bold">{villages.filter(v => v.hasFile).length}</div>
+							<div class="text-xs opacity-90">With Files</div>
+						</div>
+						<div class="text-center">
+							<div class="text-2xl font-bold">{villages.filter(v => !v.hasFile).length}</div>
+							<div class="text-xs opacity-90">Missing Files</div>
+						</div>
+						<div class="text-center">
+							<div class="text-2xl font-bold">{villages.reduce((sum, v) => sum + v.anomalyTotal, 0)}</div>
+							<div class="text-xs opacity-90">Total Anomalies</div>
+						</div>
+					</div>
+
+					<!-- Progress Bar -->
+					<div class="mt-4">
+						<div class="flex justify-between text-xs mb-1">
+							<span>Completion Progress</span>
+							<span>{villages.length > 0 ? Math.round((villages.filter(v => v.hasFile).length / villages.length) * 100) : 0}%</span>
+						</div>
+						<div class="w-full bg-white/20 rounded-full h-2">
+							<div
+								class="bg-white rounded-full h-2 transition-all duration-300"
+								style="width: {villages.length > 0 ? (villages.filter(v => v.hasFile).length / villages.length) * 100 : 0}%"
+							></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<!-- Filters Panel -->
 			<div class="bg-white rounded-lg shadow-sm p-4">
 				<h2 class="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
@@ -2468,7 +2854,30 @@
 				{#if (selectedKecamatan && selectedKelurahan) || (selectedKecamatan && !selectedKelurahan && latestFileForArea)}
 					<div class="mb-4">
 						<button
-							on:click={() => loadGeoJSONToMap(latestFileForArea)}
+							on:click={() => {
+								console.log('🔘 Button clicked!');
+								console.log('📍 Selected filters:', {
+									selectedKecamatan,
+									selectedKelurahan,
+									hasLatestFile: !!latestFileForArea
+								});
+
+								console.log('🔍 Searching for village to show...');
+								const villageToShow = selectedKelurahan
+									? filteredVillages.find(v => v.nmdesa === selectedKelurahan && v.hasFile)
+									: latestFileForArea;
+
+								console.log('🎯 Village found:', villageToShow);
+								console.log('📊 Filtered villages with files:', filteredVillages.filter(v => v.hasFile).map(v => ({ nmdesa: v.nmdesa, fileId: v.fileId })));
+
+								if (villageToShow) {
+									console.log('✅ Loading GeoJSON for village:', villageToShow.nmdesa);
+									loadGeoJSONToMap(villageToShow);
+								} else {
+									console.warn('❌ No village found to show');
+									console.log('📋 Available villages:', filteredVillages.filter(v => v.hasFile).map(v => v.nmdesa));
+								}
+							}}
 							disabled={isLoading}
 							class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
 						>
@@ -2494,15 +2903,19 @@
 				{/if}
 			</div>
 
-			<!-- Debug Info -->
-			{#if selectedKecamatan}
-				<div class="bg-yellow-50 rounded-lg shadow-sm p-4">
-					<h3 class="text-sm font-medium text-yellow-900 mb-2">Debug Info</h3>
-					<p class="text-xs text-yellow-800">Selected: {selectedKecamatan} {selectedKelurahan}</p>
-					<p class="text-xs text-yellow-800">Files found: {filesForSelectedArea.length}</p>
-					{#if latestFileForArea}
-						<p class="text-xs text-yellow-800">Latest: {latestFileForArea.originalFilename}</p>
-					{/if}
+			<!-- Filter Results Summary -->
+			{#if selectedKecamatan || selectedKelurahan}
+				<div class="bg-blue-50 rounded-lg shadow-sm p-4">
+					<h3 class="text-sm font-medium text-blue-900 mb-2">Filter Results</h3>
+					<p class="text-xs text-blue-800">
+						Showing {filteredVillages.length} of {villages.length} villages
+					</p>
+					<p class="text-xs text-blue-800">
+						With files: {filteredVillages.filter(v => v.hasFile).length}
+					</p>
+					<p class="text-xs text-blue-800">
+						Total anomalies: {filteredVillages.reduce((sum, v) => sum + v.anomalyTotal, 0)}
+					</p>
 				</div>
 			{/if}
 
@@ -2610,6 +3023,15 @@
 		<!-- Right Column (3 columns wide) - Map -->
 		<main class="lg:col-span-3">
 			<div class="bg-white rounded-lg shadow-sm h-full min-h-[600px] relative">
+				{#if isDataLoading}
+					<div class="absolute inset-0 bg-white/80 z-10 flex items-center justify-center rounded-lg">
+						<div class="text-center">
+							<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+							<p class="text-gray-600 font-medium">Loading villages data...</p>
+							<p class="text-gray-500 text-sm">Checking anomalies for uploaded files</p>
+						</div>
+					</div>
+				{/if}
 				<div bind:this={mapContainer} class="w-full h-full rounded-lg"></div>
 			</div>
 		</main>

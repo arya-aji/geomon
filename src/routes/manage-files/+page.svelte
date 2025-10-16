@@ -84,7 +84,7 @@ import JSZip from 'jszip';
 		"Karet Tengsin": ["Lusia Puji Astuti"],
 		"Serdang": ["Meiriana Hudanti Perdhani"],
 		"Pegangsaan": ["Meiriana Hudanti Perdhani"],
-		"Rawasari": ["Muhammad Fadhil Amin"],
+		"Rawa Sari": ["Muhammad Fadhil Amin"],
 		"Bendungan Hilir": ["Muhammad Fadhil Amin"],
 		"Paseban": ["Novaldi Endrawan"],
 		"Gambir": ["Novaldi Endrawan"],
