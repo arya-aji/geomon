@@ -257,7 +257,7 @@ export async function GET({ url }: { url: URL }) {
 			query = query.where(eq(processedGeojson.userId, userId));
 		}
 
-		const files = await query.orderBy(desc(processedGeojson.updatedAt)).limit(50);
+		const files = await query.orderBy(desc(processedGeojson.updatedAt)).limit(500);
 
 		// Debug logging
 		console.log('API returning files:', files.length);
