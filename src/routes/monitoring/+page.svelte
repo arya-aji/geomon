@@ -592,8 +592,51 @@
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </svelte:head>
 
-<div class="flex h-screen bg-gray-100">
-	<!-- Left Sidebar -->
+<div class="min-h-screen bg-gray-50">
+	<!-- Header -->
+	<header class="mb-8 text-center">
+		<h1 class="mb-2 text-6xl font-bold text-gray-900">GEOMON</h1>
+		<p class="mb-6 text-xl text-gray-600">Geospasial Monitoring</p>
+
+		<!-- Navigation Menu -->
+		<nav class="flex justify-center">
+			<div class="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
+				<a
+					href="/"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Pengecekan
+				</a>
+				<a
+					href="/monitoring"
+					class="rounded-l-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors"
+				>
+					Monitoring
+				</a>
+				<a
+					href="/data-sls"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Data SLS
+				</a>
+				<a
+					href="/perubahan"
+					class="border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Perubahan
+				</a>
+				<a
+					href="/manage-files"
+					class="rounded-r-lg border-l border-gray-200 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+				>
+					Manage Files
+				</a>
+			</div>
+		</nav>
+	</header>
+
+	<div class="flex h-screen bg-gray-100">
+		<!-- Left Sidebar -->
 	<aside class="w-96 bg-white shadow-lg overflow-y-auto">
 		<div class="p-6">
 			<h1 class="text-2xl font-bold text-gray-800 mb-6">🗺️ Monitoring</h1>
@@ -710,10 +753,11 @@
 		</div>
 	</aside>
 
-	<!-- Map Container -->
-	<main class="flex-1 relative">
-		<div bind:this={mapContainer} class="w-full h-full"></div>
-	</main>
+		<!-- Map Container -->
+		<main class="flex-1 relative">
+			<div bind:this={mapContainer} class="w-full h-full"></div>
+		</main>
+	</div>
 </div>
 
 <style>
