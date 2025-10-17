@@ -121,7 +121,7 @@
 				// Show more helpful error message
 				const kelurahanOptions = [...new Set(result.files.map(f => f.nmdesa).filter(Boolean))];
 				console.log(`📁 Available kelurahan:`, kelurahanOptions.slice(0, 10));
-				alert(`Tidak ada file GeoJSON untuk kelurahan ${selectedKelurahan} (${getKecamatanCode(selectedKecamatan)}). Coba pilih dari: ${kelurahanOptions.slice(0, 5).join(', ')}`);
+				alert(`Tidak ada file GeoJSON untuk kelurahan ${selectedKelurahan} (${getKecamatanCode(selectedKecamatan)}).`);
 				return;
 			}
 
