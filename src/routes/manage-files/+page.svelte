@@ -8,6 +8,15 @@ import JSZip from 'jszip';
 	let error: string | null = null;
 	let currentView: 'village' | 'operator' = 'village';
 
+	// Revalidate loading states
+	let revalidatingVillage: string | null = null;
+	let isRevalidatingAll = false;
+	let revalidateProgress = 0;
+	let revalidateTotal = 0;
+	let showToast = false;
+	let toastMessage = '';
+	let toastType: 'success' | 'error' | 'warning' = 'success';
+
 	// Official village to IDDESA mapping
 	const villageIdMapping: { [key: string]: string } = {
 		"Gelora": "3173010001",
@@ -128,6 +137,18 @@ import JSZip from 'jszip';
 		return users.join(', ');
 	}
 
+	// Function to show toast notifications
+	function showToastNotification(message: string, type: 'success' | 'error' | 'warning' = 'success') {
+		toastMessage = message;
+		toastType = type;
+		showToast = true;
+
+		// Auto-hide after 4 seconds
+		setTimeout(() => {
+			showToast = false;
+		}, 4000);
+	}
+
 	// Function to get all expected villages from user mapping
 	function getAllExpectedVillages(): any[] {
 		const expectedVillages: any[] = [];
@@ -222,6 +243,7 @@ import JSZip from 'jszip';
 		kddesa: string;
 		fileId: number;
 		originalFilename: string;
+		currentVersionId: number;
 		currentVersionNumber: number;
 		updatedAt: string;
 		userId: string;
@@ -402,6 +424,153 @@ import JSZip from 'jszip';
 		return anomalies;
 	}
 
+	// Revalidate function to check and update anomaly count for a specific file
+	async function revalidateFileAnomalies(village: Village) {
+		try {
+			revalidatingVillage = village.nmdesa;
+			console.log(`🔄 Revalidating anomalies for ${village.nmdesa} (Version ID: ${village.currentVersionId})...`);
+
+			// Get the current GeoJSON data for this file
+			const versionResponse = await fetch(`/api/geojson-versions?versionId=${village.currentVersionId}`);
+			const versionResult = await versionResponse.json();
+
+			if (versionResult.success && versionResult.version && versionResult.version.geojsonData) {
+				// Perform real-time anomaly checking on the current GeoJSON data
+				const anomalies = await checkAnomaliesForGeoJSON(versionResult.version.geojsonData);
+
+				// Update anomaly summary in the version record
+				const anomalySummary = {
+					total: anomalies.length,
+					byType: anomalies.reduce((acc, anomaly) => {
+						const type = anomaly.properties?.anomalyType || 'unknown';
+						acc[type] = (acc[type] || 0) + 1;
+						return acc;
+					}, {}),
+					bySeverity: anomalies.reduce((acc, anomaly) => {
+						const severity = anomaly.severity || 'Low';
+						acc[severity] = (acc[severity] || 0) + 1;
+						return acc;
+					}, {}),
+					timestamp: new Date().toISOString(),
+					revalidated: true
+				};
+
+				// Call API to update the anomaly summary
+				const updateResponse = await fetch(`/api/update-anomaly-summary`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						versionId: village.currentVersionId,
+						anomalySummary: anomalySummary,
+						anomalies: anomalies
+					})
+				});
+
+				if (updateResponse.ok) {
+					const updateResult = await updateResponse.json();
+					if (updateResult.success) {
+						console.log(`✅ Successfully updated anomaly summary for ${village.nmdesa}: ${anomalies.length} anomalies`);
+
+						// Update the local data immediately
+						const villageIndex = villages.findIndex(v => v.fileId === village.fileId);
+						if (villageIndex !== -1) {
+							villages[villageIndex].anomalyTotal = anomalies.length;
+							villages = [...villages]; // Trigger reactivity
+
+							// Update grouped data as well
+							groupedByUser = groupVillagesByUser(villages);
+						}
+
+						// Show success toast
+						let statusMessage = '';
+						if (anomalies.length === 0) {
+							statusMessage = '✅ Clean - No anomalies found';
+						} else if (anomalies.length <= 5) {
+							statusMessage = `⚠️ Minor issues - ${anomalies.length} anomalies found`;
+						} else {
+							statusMessage = `🚨 Multiple issues - ${anomalies.length} anomalies found`;
+						}
+
+						showToastNotification(
+							`${village.nmdesa}: ${anomalies.length} anomalies found and updated in database.`,
+							anomalies.length === 0 ? 'success' : 'warning'
+						);
+					} else {
+						throw new Error(updateResult.message || 'Failed to update anomaly summary');
+					}
+				} else {
+					throw new Error(`HTTP ${updateResponse.status}: ${updateResponse.statusText}`);
+				}
+			} else {
+				throw new Error('No GeoJSON data found for this file');
+			}
+		} catch (error) {
+			console.error(`Error revalidating ${village.nmdesa}:`, error);
+			showToastNotification(
+				`Failed to revalidate ${village.nmdesa}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				'error'
+			);
+		} finally {
+			revalidatingVillage = null;
+		}
+	}
+
+	// Revalidate all files with data
+	async function revalidateAllFiles() {
+		const villagesWithFiles = villages.filter(v => v.hasFile);
+
+		if (villagesWithFiles.length === 0) {
+			showToastNotification('No files available to revalidate', 'warning');
+			return;
+		}
+
+		isRevalidatingAll = true;
+		revalidateProgress = 0;
+		revalidateTotal = villagesWithFiles.length;
+
+		let successCount = 0;
+		let errorCount = 0;
+		const errors: string[] = [];
+
+		// Process files one by one to avoid overwhelming the server
+		for (let i = 0; i < villagesWithFiles.length; i++) {
+			const village = villagesWithFiles[i];
+			revalidateProgress = i + 1;
+			console.log(`Processing ${i + 1}/${villagesWithFiles.length}: ${village.nmdesa}`);
+
+			try {
+				await revalidateFileAnomalies(village);
+				successCount++;
+
+				// Add a small delay between requests to be gentle on the server
+				await new Promise(resolve => setTimeout(resolve, 500));
+			} catch (error) {
+				errorCount++;
+				errors.push(`${village.nmdesa}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			}
+		}
+
+		isRevalidatingAll = false;
+
+		// Show final results toast
+		if (errorCount === 0) {
+			showToastNotification(
+				`Revalidation complete! Successfully validated all ${successCount} files.`,
+				'success'
+			);
+		} else {
+			showToastNotification(
+				`Revalidation complete: ${successCount} successful, ${errorCount} failed. Check console for details.`,
+				errorCount > successCount ? 'error' : 'warning'
+			);
+		}
+
+		// Refresh the data to get updated counts
+		await fetchVillages();
+	}
+
 	async function fetchVillages() {
 		try {
 			const response = await fetch('/api/save-geojson?userId=anonymous');
@@ -458,6 +627,7 @@ import JSZip from 'jszip';
 								kddesa: file.kddesa,
 								fileId: file.id,
 								originalFilename: file.originalFilename,
+								currentVersionId: file.currentVersionId,
 								currentVersionNumber: file.currentVersionNumber,
 								updatedAt: file.updatedAt,
 								userId: file.userId,
@@ -999,6 +1169,27 @@ For missing villages, download the missing villages reference from the manage-fi
 							{#if currentView === 'village'}
 								{@const completedCount = villages.filter(v => v.hasFile).length}
 								{@const missingCount = villages.filter(v => !v.hasFile).length}
+								{#if completedCount > 0}
+									<button
+										on:click={revalidateAllFiles}
+										class="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+										disabled={isRevalidatingAll}
+									>
+										{#if isRevalidatingAll}
+											<svg class="mr-2 h-4 w-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+											</svg>
+											<span class="hidden sm:inline">Revalidating... ({revalidateProgress}/{revalidateTotal})</span>
+											<span class="sm:hidden">Validating</span>
+										{:else}
+											<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+											</svg>
+											<span class="hidden sm:inline">Revalidate All ({completedCount})</span>
+											<span class="sm:hidden">Revalidate</span>
+										{/if}
+									</button>
+								{/if}
 								{#if missingCount > 0}
 									<button
 										on:click={copyMissingVillagesSummary}
@@ -1151,8 +1342,8 @@ For missing villages, download the missing villages reference from the manage-fi
 								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
 									Updated
 								</th>
-								<th scope="col" class="relative px-6 py-3">
-									<span class="sr-only">Actions</span>
+								<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+									Actions
 								</th>
 							</tr>
 						</thead>
@@ -1218,28 +1409,68 @@ For missing villages, download the missing villages reference from the manage-fi
 											<span class="text-red-600">No file uploaded</span>
 										{/if}
 									</td>
-									<td class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+									<td class="whitespace-nowrap px-6 py-4 text-sm font-medium">
 										{#if village.hasFile}
-											<button
-												on:click={() => downloadGeoJson(village)}
-												class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
-												title="Download GeoJSON file"
-											>
-												<svg
-													class="mr-2 h-4 w-4"
-													fill="none"
-													stroke="currentColor"
-													viewBox="0 0 24 24"
+											<div class="flex space-x-2">
+												<button
+													on:click={() => downloadGeoJson(village)}
+													class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
+													title="Download GeoJSON file"
 												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-													></path>
-												</svg>
-												Download
-											</button>
+													<svg
+														class="mr-2 h-4 w-4"
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+														></path>
+													</svg>
+													<span class="hidden sm:inline">Download</span>
+												</button>
+												<button
+													on:click={() => revalidateFileAnomalies(village)}
+													class="inline-flex items-center rounded-md bg-teal-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+													title="Revalidate anomaly count for this file"
+													disabled={revalidatingVillage === village.nmdesa}
+												>
+													{#if revalidatingVillage === village.nmdesa}
+														<svg
+															class="mr-2 h-4 w-4 animate-spin"
+															fill="none"
+															stroke="currentColor"
+															viewBox="0 0 24 24"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+															></path>
+														</svg>
+														<span class="hidden sm:inline">Revalidating...</span>
+													{:else}
+														<svg
+															class="mr-2 h-4 w-4"
+															fill="none"
+															stroke="currentColor"
+															viewBox="0 0 24 24"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+															></path>
+														</svg>
+														<span class="hidden sm:inline">Revalidate</span>
+													{/if}
+												</button>
+											</div>
 										{:else}
 											<button
 												disabled
@@ -1335,8 +1566,8 @@ For missing villages, download the missing villages reference from the manage-fi
 											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
 												Updated
 											</th>
-											<th scope="col" class="relative px-6 py-3">
-												<span class="sr-only">Actions</span>
+											<th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+												Actions
 											</th>
 										</tr>
 									</thead>
@@ -1390,28 +1621,68 @@ For missing villages, download the missing villages reference from the manage-fi
 														<span class="text-red-600">No file uploaded</span>
 													{/if}
 												</td>
-												<td class="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+												<td class="whitespace-nowrap px-6 py-4 text-sm font-medium">
 													{#if village.hasFile}
-														<button
-															on:click={() => downloadGeoJson(village)}
-															class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
-															title="Download GeoJSON file"
-														>
-															<svg
-																class="mr-2 h-4 w-4"
-																fill="none"
-																stroke="currentColor"
-																viewBox="0 0 24 24"
+														<div class="flex space-x-2">
+															<button
+																on:click={() => downloadGeoJson(village)}
+																class="inline-flex items-center rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:outline-none"
+																title="Download GeoJSON file"
 															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	stroke-width="2"
-																	d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-																></path>
-															</svg>
-															Download
-														</button>
+																<svg
+																	class="mr-2 h-4 w-4"
+																	fill="none"
+																	stroke="currentColor"
+																	viewBox="0 0 24 24"
+																>
+																	<path
+																		stroke-linecap="round"
+																		stroke-linejoin="round"
+																		stroke-width="2"
+																		d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+																	></path>
+																</svg>
+																<span class="hidden sm:inline">Download</span>
+															</button>
+															<button
+																on:click={() => revalidateFileAnomalies(village)}
+																class="inline-flex items-center rounded-md bg-teal-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700 focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+																title="Revalidate anomaly count for this file"
+																disabled={revalidatingVillage === village.nmdesa}
+															>
+																{#if revalidatingVillage === village.nmdesa}
+																	<svg
+																		class="mr-2 h-4 w-4 animate-spin"
+																		fill="none"
+																		stroke="currentColor"
+																		viewBox="0 0 24 24"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+																		></path>
+																	</svg>
+																	<span class="hidden sm:inline">Revalidating...</span>
+																{:else}
+																	<svg
+																		class="mr-2 h-4 w-4"
+																		fill="none"
+																		stroke="currentColor"
+																		viewBox="0 0 24 24"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+																		></path>
+																	</svg>
+																	<span class="hidden sm:inline">Revalidate</span>
+																{/if}
+															</button>
+														</div>
 													{:else}
 														<button
 															disabled
@@ -1446,4 +1717,48 @@ For missing villages, download the missing villages reference from the manage-fi
 			{/if}
 		</div>
 	</div>
+
+	<!-- Toast Notification -->
+	{#if showToast}
+		<div
+			class="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg shadow-lg p-4 transform transition-all duration-300 {showToast ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}"
+			class:bg-green-500={toastType === 'success'}
+			class:bg-red-500={toastType === 'error'}
+			class:bg-yellow-500={toastType === 'warning'}
+		>
+			<div class="flex items-center">
+				<div class="flex-shrink-0">
+					{#if toastType === 'success'}
+						<svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+					{:else if toastType === 'error'}
+						<svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+					{:else}
+						<svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.82 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+						</svg>
+					{/if}
+				</div>
+				<div class="ml-3">
+					<p class="text-sm font-medium text-white">{toastMessage}</p>
+				</div>
+				<div class="ml-auto pl-3">
+					<div class="-mx-1.5 -my-1.5">
+						<button
+							on:click={() => showToast = false}
+							class="inline-flex rounded-md p-1.5 text-white hover:bg-white hover:bg-opacity-20 transition-colors"
+						>
+							<span class="sr-only">Dismiss</span>
+							<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+							</svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
